@@ -9,7 +9,7 @@ import {
 } from 'react';
 import Box from '@material-ui/core/Box';
 import Typography from '@material-ui/core/Typography';
-import { makeStyles, type Theme } from '@material-ui/core/styles';
+import { makeStyles } from '@material-ui/core/styles';
 import { ApiEntityV1alpha1 } from '@backstage/catalog-model';
 import { EmptyState, Progress } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
@@ -18,6 +18,11 @@ import {
   OpenApiDefinitionWidget,
 } from '@backstage/plugin-api-docs';
 import { useEntity } from '@backstage/plugin-catalog-react';
+import {
+  Card,
+  darkTokens,
+  lightTokens,
+} from '@openchoreo/backstage-design-system';
 import { CHOREO_ANNOTATIONS } from '@openchoreo/backstage-plugin-common';
 import {
   EnvironmentFilter,
@@ -95,17 +100,33 @@ function resolveEnvUrl(
   return derivePrimaryUrl(endpoints)?.url;
 }
 
-const usePanelStyles = makeStyles((theme: Theme) => ({
-  root: {
+const usePanelStyles = makeStyles(theme => ({
+  card: {
     margin: theme.spacing(0, 2, 2),
-    padding: theme.spacing(2),
-    border: `1px solid ${theme.palette.divider}`,
-    borderRadius: theme.shape.borderRadius,
-    backgroundColor: theme.palette.background.default,
+    display: 'flex',
+    flexDirection: 'column',
+    borderRadius: '12px !important',
+    border: `1px solid ${
+      theme.palette.type === 'dark'
+        ? darkTokens.border.subtle
+        : lightTokens.grey[100]
+    } !important`,
+    boxShadow: `${
+      theme.palette.type === 'dark'
+        ? darkTokens.shadow.card
+        : lightTokens.shadow.card
+    } !important`,
   },
-  heading: {
-    fontWeight: 500,
-    marginBottom: theme.spacing(1),
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing(2),
+  },
+  cardTitle: {
+    fontWeight: 600,
+    fontSize: theme.typography.h6.fontSize,
+    color: theme.palette.text.primary,
   },
   selector: {
     maxWidth: 320,
@@ -114,6 +135,10 @@ const usePanelStyles = makeStyles((theme: Theme) => ({
     marginTop: theme.spacing(2),
     paddingTop: theme.spacing(2),
     borderTop: `1px dashed ${theme.palette.divider}`,
+  },
+  authHeading: {
+    fontWeight: 600,
+    marginBottom: theme.spacing(1),
   },
 }));
 
@@ -180,13 +205,15 @@ const TryOutConnectionPanel = () => {
   };
 
   return (
-    <div className={classes.root}>
-      <Typography variant="subtitle2" className={classes.heading}>
-        Connection
-      </Typography>
+    <Card padding={24} className={classes.card}>
+      <Box className={classes.cardHeader}>
+        <Typography variant="h5" className={classes.cardTitle}>
+          Connection
+        </Typography>
+      </Box>
       {renderSelector()}
       <div className={classes.authArea}>
-        <Typography variant="subtitle2" className={classes.heading}>
+        <Typography variant="subtitle2" className={classes.authHeading}>
           Authentication
         </Typography>
         <Typography variant="body2" color="textSecondary">
@@ -194,7 +221,7 @@ const TryOutConnectionPanel = () => {
           soon.
         </Typography>
       </div>
-    </div>
+    </Card>
   );
 };
 
