@@ -657,11 +657,7 @@ const apiPage = (
     </EntityLayout.Route>
 
     <EntityLayout.Route path="/definition" title="Definition">
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <ApiRawDefinitionCard />
-        </Grid>
-      </Grid>
+      <ApiRawDefinitionCard />
     </EntityLayout.Route>
 
     <EntityLayout.Route path="/try-out" title="Try Out">
