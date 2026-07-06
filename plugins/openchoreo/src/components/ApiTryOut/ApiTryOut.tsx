@@ -1,5 +1,7 @@
 import {
   createContext,
+  lazy,
+  Suspense,
   useContext,
   useEffect,
   useMemo,
@@ -320,6 +322,9 @@ const OpenApiConsole = OpenApiDefinitionWidget as unknown as ComponentType<{
   plugins?: unknown[];
 }>;
 
+// GraphiQL is a large bundle; load it only when a GraphQL API is opened.
+const GraphQlConsole = lazy(() => import('./GraphQlConsole'));
+
 /**
  * Environment-aware "Try Out" console for API entities.
  *
@@ -341,6 +346,7 @@ export const ApiTryOut = () => {
     ? config.getApiDefinitionWidget(entity as ApiEntityV1alpha1)
     : undefined;
   const isOpenApi = entity.spec?.type === 'openapi';
+  const isGraphQl = entity.spec?.type === 'graphql';
 
   const namespace =
     entity.metadata.annotations?.[CHOREO_ANNOTATIONS.NAMESPACE] ?? '';
@@ -399,8 +405,32 @@ export const ApiTryOut = () => {
     [environments, filterEnvs, selected, loading, isForbidden, activeUrl],
   );
 
-  // No interactive widget for this API type (or no definition at all).
-  if (!definition || !definitionWidget) {
+  // No definition at all — nothing to render.
+  if (!definition) {
+    return (
+      <EmptyState
+        missing="info"
+        title="Try Out not available"
+        description="This API has no definition."
+      />
+    );
+  }
+
+  // GraphQL: dedicated, environment-aware GraphiQL console (doesn't use the
+  // stock api-docs widget). The connection panel renders above the IDE.
+  if (isGraphQl) {
+    return (
+      <ConnectionContext.Provider value={contextValue}>
+        <TryOutConnectionPanel />
+        <Suspense fallback={<Progress />}>
+          <GraphQlConsole url={activeUrl} definition={definition} />
+        </Suspense>
+      </ConnectionContext.Provider>
+    );
+  }
+
+  // No interactive widget for this (non-GraphQL) API type.
+  if (!definitionWidget) {
     return (
       <EmptyState
         missing="info"
