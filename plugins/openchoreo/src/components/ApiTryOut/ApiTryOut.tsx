@@ -105,7 +105,9 @@ function resolveEnvUrl(
 
 const usePanelStyles = makeStyles(theme => ({
   card: {
-    margin: theme.spacing(0, 2, 2),
+    // No horizontal margin so the card's left/right edges line up with the
+    // OpenAPI title and operations in the SwaggerUI layout.
+    margin: theme.spacing(2, 0),
     display: 'flex',
     flexDirection: 'column',
     borderRadius: '12px !important',
