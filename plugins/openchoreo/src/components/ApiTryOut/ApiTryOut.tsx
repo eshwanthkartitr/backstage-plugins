@@ -8,8 +8,11 @@ import {
   type ReactElement,
 } from 'react';
 import Box from '@material-ui/core/Box';
+import IconButton from '@material-ui/core/IconButton';
+import Tooltip from '@material-ui/core/Tooltip';
 import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
+import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
 import { ApiEntityV1alpha1 } from '@backstage/catalog-model';
 import { EmptyState, Progress } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
@@ -131,6 +134,31 @@ const usePanelStyles = makeStyles(theme => ({
   selector: {
     maxWidth: 320,
   },
+  endpointRow: {
+    marginTop: theme.spacing(2),
+  },
+  endpointLabel: {
+    fontWeight: 600,
+    color: theme.palette.text.secondary,
+    marginBottom: theme.spacing(0.5),
+  },
+  inlineUrlRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    minWidth: 0,
+  },
+  inlineUrl: {
+    fontFamily:
+      'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+    color: theme.palette.primary.main,
+    textDecoration: 'none',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    minWidth: 0,
+    flex: 1,
+  },
   authArea: {
     marginTop: theme.spacing(2),
     paddingTop: theme.spacing(2),
@@ -156,13 +184,6 @@ const TryOutConnectionPanel = () => {
 
   const { environments, filterEnvs, filterSelected, onSelect, loading, isForbidden, activeUrl } =
     ctx;
-
-  let urlCaption = '';
-  if (activeUrl) {
-    urlCaption = `Requests are sent to ${activeUrl}`;
-  } else if (filterSelected) {
-    urlCaption = 'No public URL is exposed for this environment.';
-  }
 
   const renderSelector = () => {
     if (loading) {
@@ -197,9 +218,38 @@ const TryOutConnectionPanel = () => {
             disabledTooltip="Not deployed to this environment"
           />
         </Box>
-        <Typography variant="caption" color="textSecondary">
-          {urlCaption}
-        </Typography>
+        <Box className={classes.endpointRow}>
+          <Typography variant="body2" className={classes.endpointLabel}>
+            Endpoint
+          </Typography>
+          {activeUrl ? (
+            <Box className={classes.inlineUrlRow}>
+              <Tooltip title={activeUrl}>
+                <a
+                  href={activeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={classes.inlineUrl}
+                >
+                  {activeUrl}
+                </a>
+              </Tooltip>
+              <Tooltip title="Copy URL">
+                <IconButton
+                  size="small"
+                  aria-label="Copy URL"
+                  onClick={() => navigator.clipboard?.writeText(activeUrl)}
+                >
+                  <FileCopyOutlinedIcon fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          ) : (
+            <Typography variant="body2" color="textSecondary">
+              No public URL is exposed for this environment.
+            </Typography>
+          )}
+        </Box>
       </>
     );
   };
@@ -226,8 +276,10 @@ const TryOutConnectionPanel = () => {
 };
 
 /**
- * SwaggerUI plugin that injects the connection panel immediately after the API
- * info block (title/description), i.e. right where the servers are shown.
+ * SwaggerUI plugin that (a) injects the connection panel immediately after the
+ * API info block (title/description) — i.e. where the servers used to be — and
+ * (b) suppresses SwaggerUI's native "Servers" selector, since the target
+ * endpoint is now surfaced in the connection panel instead.
  */
 const connectionPlugin = {
   wrapComponents: {
@@ -241,9 +293,23 @@ const connectionPlugin = {
           </>
         ),
   },
+  components: {
+    Servers: () => null,
+    ServersContainer: () => null,
+  },
 };
 
 const CONNECTION_PLUGINS = [connectionPlugin];
+
+// SwaggerUI still renders the (now-empty) `.scheme-container` bar because the
+// spec declares servers; hide it since the endpoint is shown in the panel.
+const useConsoleStyles = makeStyles({
+  root: {
+    '& .scheme-container': {
+      display: 'none',
+    },
+  },
+});
 
 // The stock widget forwards arbitrary props (including `plugins`) straight to
 // SwaggerUI, but only declares three in its public type — widen it here.
@@ -265,6 +331,7 @@ const OpenApiConsole = OpenApiDefinitionWidget as unknown as ComponentType<{
 export const ApiTryOut = () => {
   const { entity } = useEntity();
   const config = useApi(apiDocsConfigRef);
+  const consoleClasses = useConsoleStyles();
   const { environments, loading, isForbidden } = useEnvironmentData(entity);
 
   const definition = entity.spec?.definition as string | undefined;
@@ -348,10 +415,12 @@ export const ApiTryOut = () => {
 
   return (
     <ConnectionContext.Provider value={contextValue}>
-      <OpenApiConsole
-        definition={effectiveDefinition ?? definition}
-        plugins={CONNECTION_PLUGINS}
-      />
+      <div className={consoleClasses.root}>
+        <OpenApiConsole
+          definition={effectiveDefinition ?? definition}
+          plugins={CONNECTION_PLUGINS}
+        />
+      </div>
     </ConnectionContext.Provider>
   );
 };
