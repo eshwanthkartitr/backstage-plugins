@@ -11,7 +11,7 @@ import Box from '@material-ui/core/Box';
 import Typography from '@material-ui/core/Typography';
 import { makeStyles, type Theme } from '@material-ui/core/styles';
 import { ApiEntityV1alpha1 } from '@backstage/catalog-model';
-import { EmptyState, InfoCard, Progress } from '@backstage/core-components';
+import { EmptyState, Progress } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 import {
   apiDocsConfigRef,
@@ -316,21 +316,15 @@ export const ApiTryOut = () => {
 
   // Non-OpenAPI widgets: render the stock widget without gateway targeting.
   if (!isOpenApi) {
-    return (
-      <InfoCard title="Try Out">
-        {definitionWidget.component(definition)}
-      </InfoCard>
-    );
+    return <>{definitionWidget.component(definition)}</>;
   }
 
   return (
-    <InfoCard title="Try Out">
-      <ConnectionContext.Provider value={contextValue}>
-        <OpenApiConsole
-          definition={effectiveDefinition ?? definition}
-          plugins={CONNECTION_PLUGINS}
-        />
-      </ConnectionContext.Provider>
-    </InfoCard>
+    <ConnectionContext.Provider value={contextValue}>
+      <OpenApiConsole
+        definition={effectiveDefinition ?? definition}
+        plugins={CONNECTION_PLUGINS}
+      />
+    </ConnectionContext.Provider>
   );
 };
