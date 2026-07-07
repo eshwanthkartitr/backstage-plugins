@@ -34,6 +34,8 @@ import {
   type Environment,
 } from '../Environments/hooks/useEnvironmentData';
 import { derivePrimaryUrl } from '../Environments/utils/invokeUrlUtils';
+import { TryOutAuthFields } from './TryOutAuthFields';
+import { useTryOutAuth, type TryOutAuth } from './useTryOutAuth';
 
 /**
  * State bridged from the ApiTryOut component into the connection panel that
@@ -49,6 +51,7 @@ interface ConnectionContextValue {
   loading: boolean;
   isForbidden: boolean;
   activeUrl?: string;
+  auth: TryOutAuth;
 }
 
 const ConnectionContext = createContext<ConnectionContextValue | null>(null);
@@ -181,8 +184,16 @@ const TryOutConnectionPanel = () => {
     return null;
   }
 
-  const { environments, filterEnvs, filterSelected, onSelect, loading, isForbidden, activeUrl } =
-    ctx;
+  const {
+    environments,
+    filterEnvs,
+    filterSelected,
+    onSelect,
+    loading,
+    isForbidden,
+    activeUrl,
+    auth,
+  } = ctx;
 
   const renderSelector = () => {
     if (loading) {
@@ -265,10 +276,7 @@ const TryOutConnectionPanel = () => {
         <Typography variant="subtitle2" className={classes.authHeading}>
           Authentication
         </Typography>
-        <Typography variant="body2" color="textSecondary">
-          Token endpoint, client credentials, and API key configuration coming
-          soon.
-        </Typography>
+        <TryOutAuthFields {...auth} />
       </div>
     </Card>
   );
@@ -310,11 +318,16 @@ const useConsoleStyles = makeStyles({
   },
 });
 
-// The stock widget forwards arbitrary props (including `plugins`) straight to
-// SwaggerUI, but only declares three in its public type — widen it here.
+// The stock widget forwards arbitrary props (including `plugins` and
+// `requestInterceptor`) straight to SwaggerUI — widen the public type here.
+interface SwaggerRequest {
+  headers?: Record<string, string>;
+}
+
 const OpenApiConsole = OpenApiDefinitionWidget as unknown as ComponentType<{
   definition: string;
   plugins?: unknown[];
+  requestInterceptor?: (req: SwaggerRequest) => SwaggerRequest;
 }>;
 
 // GraphiQL is a large bundle; load it only when a GraphQL API is opened.
@@ -334,6 +347,7 @@ export const ApiTryOut = () => {
   const { entity } = useEntity();
   const consoleClasses = useConsoleStyles();
   const { environments, loading, isForbidden } = useEnvironmentData(entity);
+  const auth = useTryOutAuth();
 
   const definition = entity.spec?.definition as string | undefined;
   const isOpenApi = entity.spec?.type === 'openapi';
@@ -392,8 +406,20 @@ export const ApiTryOut = () => {
       loading,
       isForbidden,
       activeUrl,
+      auth,
     }),
-    [environments, filterEnvs, selected, loading, isForbidden, activeUrl],
+    [environments, filterEnvs, selected, loading, isForbidden, activeUrl, auth],
+  );
+
+  // Stable interceptor: reads the latest auth headers from the ref at request
+  // time, so editing the auth form never re-initializes the SwaggerUI instance.
+  const authHeadersRef = auth.headersRef;
+  const requestInterceptor = useMemo(
+    () => (req: SwaggerRequest) => {
+      req.headers = { ...(req.headers ?? {}), ...authHeadersRef.current };
+      return req;
+    },
+    [authHeadersRef],
   );
 
   // No definition at all — nothing to render.
@@ -414,7 +440,11 @@ export const ApiTryOut = () => {
       <ConnectionContext.Provider value={contextValue}>
         <TryOutConnectionPanel />
         <Suspense fallback={<Progress />}>
-          <GraphQlConsole url={activeUrl} definition={definition} />
+          <GraphQlConsole
+            url={activeUrl}
+            definition={definition}
+            headersRef={auth.headersRef}
+          />
         </Suspense>
       </ConnectionContext.Provider>
     );
@@ -439,6 +469,7 @@ export const ApiTryOut = () => {
         <OpenApiConsole
           definition={effectiveDefinition ?? definition}
           plugins={CONNECTION_PLUGINS}
+          requestInterceptor={requestInterceptor}
         />
       </div>
     </ConnectionContext.Provider>

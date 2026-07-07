@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type MutableRefObject } from 'react';
 import Box from '@material-ui/core/Box';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import { createGraphiQLFetcher, type Fetcher } from '@graphiql/toolkit';
@@ -18,6 +18,8 @@ export interface GraphQlConsoleProps {
   url?: string;
   /** The GraphQL SDL schema (from the API entity's spec.definition). */
   definition: string;
+  /** Live auth headers to attach to every request (from the Connection panel). */
+  headersRef?: MutableRefObject<Record<string, string>>;
 }
 
 /**
@@ -28,7 +30,11 @@ export interface GraphQlConsoleProps {
  * fetcher pointed at the selected environment's endpoint; when no endpoint is
  * available the fetcher surfaces a friendly message on execute.
  */
-const GraphQlConsole = ({ url, definition }: GraphQlConsoleProps) => {
+const GraphQlConsole = ({
+  url,
+  definition,
+  headersRef,
+}: GraphQlConsoleProps) => {
   const classes = useStyles();
   const muiTheme = useTheme();
   // Match GraphiQL's theme to the active Backstage/OpenChoreo theme. Forcing it
@@ -45,14 +51,24 @@ const GraphQlConsole = ({ url, definition }: GraphQlConsoleProps) => {
 
   const fetcher = useMemo<Fetcher>(() => {
     if (url) {
-      return createGraphiQLFetcher({ url });
+      // Inject the current auth headers via a custom fetch that reads the ref at
+      // request time, so editing auth fields doesn't recreate the fetcher (which
+      // would reset the GraphiQL editor/tabs).
+      const authFetch: typeof fetch = (input, init = {}) => {
+        const merged = new Headers(init.headers);
+        Object.entries(headersRef?.current ?? {}).forEach(([key, value]) =>
+          merged.set(key, value),
+        );
+        return fetch(input, { ...init, headers: merged });
+      };
+      return createGraphiQLFetcher({ url, fetch: authFetch });
     }
     return async () => {
       throw new Error(
         'Select a deployed environment with a public endpoint to run queries.',
       );
     };
-  }, [url]);
+  }, [url, headersRef]);
 
   return (
     <Box className={classes.root}>
