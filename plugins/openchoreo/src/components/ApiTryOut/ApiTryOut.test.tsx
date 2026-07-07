@@ -308,4 +308,47 @@ describe('ApiTryOut', () => {
     fireEvent.click(screen.getByRole('button', { name: 'staging' }));
     await waitFor(() => expect(graphQlProps.url).toBeUndefined());
   });
+
+  it('re-syncs to the refreshed environment when its endpoints change on refetch', async () => {
+    setEnvData({ environments: [deployedEnv] });
+    mockUseEntity.mockReturnValue({
+      entity: apiEntity({
+        type: 'graphql',
+        definition: 'type Query{a:String}',
+      }),
+    });
+
+    const { rerender } = render(<ApiTryOut />);
+    await waitFor(() =>
+      expect(graphQlProps.url).toBe('https://api.example.com:443/v1'),
+    );
+
+    // Refetch returns a same-named environment whose endpoint is gone; the
+    // console must drop the now-invalid URL rather than keep the stale one.
+    setEnvData({ environments: [{ ...deployedEnv, endpoints: [] }] });
+    rerender(<ApiTryOut />);
+
+    await waitFor(() => expect(graphQlProps.url).toBeUndefined());
+  });
+
+  it('re-defaults the selection when the selected environment is removed on refetch', async () => {
+    setEnvData({ environments: [deployedEnv] });
+    mockUseEntity.mockReturnValue({
+      entity: apiEntity({
+        type: 'graphql',
+        definition: 'type Query{a:String}',
+      }),
+    });
+
+    const { rerender } = render(<ApiTryOut />);
+    await waitFor(() =>
+      expect(graphQlProps.url).toBe('https://api.example.com:443/v1'),
+    );
+
+    // 'dev' disappears; only the URL-less 'staging' remains.
+    setEnvData({ environments: [undeployedEnv] });
+    rerender(<ApiTryOut />);
+
+    await waitFor(() => expect(graphQlProps.url).toBeUndefined());
+  });
 });

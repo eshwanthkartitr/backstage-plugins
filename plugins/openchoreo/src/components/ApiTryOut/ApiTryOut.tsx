@@ -350,9 +350,25 @@ export const ApiTryOut = () => {
 
   const [selected, setSelected] = useState<Environment | null>(null);
 
-  // Default to the first environment that has a deployed (URL-bearing) endpoint.
+  // Keep the selection in sync with the (re)fetched environments: default to the
+  // first deployed (URL-bearing) environment, re-point to the refreshed object
+  // when the selected one still exists (its endpoints may have changed), and
+  // re-default when it has been removed — so activeUrl never derives from a
+  // stale environment object.
   useEffect(() => {
-    if (selected || environments.length === 0) {
+    if (environments.length === 0) {
+      if (selected) {
+        setSelected(null);
+      }
+      return;
+    }
+    const match = selected
+      ? environments.find(e => e.name === selected.name)
+      : undefined;
+    if (match) {
+      if (match !== selected) {
+        setSelected(match);
+      }
       return;
     }
     const firstDeployed =

@@ -121,7 +121,6 @@ const TextInput = ({
             type="button"
             className={classes.toggle}
             onClick={() => setShow(s => !s)}
-            tabIndex={-1}
             aria-label={show ? 'Hide value' : 'Show value'}
           >
             {show ? (
