@@ -76,7 +76,7 @@ jest.mock('@openchoreo/backstage-plugin-common', () => ({
 
 // ---- Fixtures ----
 
-function apiEntity(spec: Record<string, unknown>): Entity {
+function apiEntity(spec: Entity['spec']): Entity {
   return {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'API',
