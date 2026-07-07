@@ -15,13 +15,8 @@ import Tooltip from '@material-ui/core/Tooltip';
 import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
 import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
-import { ApiEntityV1alpha1 } from '@backstage/catalog-model';
 import { EmptyState, Progress } from '@backstage/core-components';
-import { useApi } from '@backstage/core-plugin-api';
-import {
-  apiDocsConfigRef,
-  OpenApiDefinitionWidget,
-} from '@backstage/plugin-api-docs';
+import { OpenApiDefinitionWidget } from '@backstage/plugin-api-docs';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import {
   Card,
@@ -337,14 +332,10 @@ const GraphQlConsole = lazy(() => import('./GraphQlConsole'));
  */
 export const ApiTryOut = () => {
   const { entity } = useEntity();
-  const config = useApi(apiDocsConfigRef);
   const consoleClasses = useConsoleStyles();
   const { environments, loading, isForbidden } = useEnvironmentData(entity);
 
   const definition = entity.spec?.definition as string | undefined;
-  const definitionWidget = definition
-    ? config.getApiDefinitionWidget(entity as ApiEntityV1alpha1)
-    : undefined;
   const isOpenApi = entity.spec?.type === 'openapi';
   const isGraphQl = entity.spec?.type === 'graphql';
 
@@ -429,20 +420,17 @@ export const ApiTryOut = () => {
     );
   }
 
-  // No interactive widget for this (non-GraphQL) API type.
-  if (!definitionWidget) {
+  // Only OpenAPI (SwaggerUI) and GraphQL (handled above) have interactive,
+  // environment-aware consoles. Every other API type shows a notice — the raw
+  // schema is still available on the Definition tab.
+  if (!isOpenApi) {
     return (
       <EmptyState
         missing="info"
         title="Try Out not available"
-        description="This API type doesn't support interactive testing."
+        description="Interactive testing isn't available for this API type yet."
       />
     );
-  }
-
-  // Non-OpenAPI widgets: render the stock widget without gateway targeting.
-  if (!isOpenApi) {
-    return <>{definitionWidget.component(definition)}</>;
   }
 
   return (
