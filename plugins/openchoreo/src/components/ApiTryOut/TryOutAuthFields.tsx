@@ -143,8 +143,15 @@ const TextInput = ({
  */
 export const TryOutAuthFields = (props: TryOutAuth) => {
   const classes = useStyles();
-  const { config, setScheme, setApiKey, setBearer, setOauth2, oauth, getToken } =
-    props;
+  const {
+    config,
+    setScheme,
+    setApiKey,
+    setBearer,
+    setOauth2,
+    oauth,
+    getToken,
+  } = props;
 
   const oauthValues = config.oauth2;
   const canGetToken =
