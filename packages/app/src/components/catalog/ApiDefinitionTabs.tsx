@@ -55,9 +55,18 @@ export const ApiRawDefinitionCard = () => {
   }
 
   const handleCopy = () => {
-    navigator.clipboard?.writeText(definition);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // Only signal success once the write actually resolves — a silent
+    // fire-and-forget would show "Copied" even when the clipboard API is
+    // unavailable (insecure context) or the write is rejected.
+    navigator.clipboard?.writeText(definition).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      },
+      () => {
+        /* clipboard write failed; leave the button state unchanged */
+      },
+    );
   };
 
   return (

@@ -240,7 +240,13 @@ const TryOutConnectionPanel = () => {
                 <IconButton
                   size="small"
                   aria-label="Copy URL"
-                  onClick={() => navigator.clipboard?.writeText(activeUrl)}
+                  onClick={() =>
+                    // Best-effort — clipboard access may be unavailable
+                    // (insecure context / denied); swallow the rejection.
+                    navigator.clipboard
+                      ?.writeText(activeUrl)
+                      .catch(() => undefined)
+                  }
                 >
                   <FileCopyOutlinedIcon fontSize="inherit" />
                 </IconButton>

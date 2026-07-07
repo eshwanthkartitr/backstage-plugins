@@ -254,7 +254,7 @@ describe('ApiTryOut', () => {
   });
 
   it('renders the endpoint URL and a copy button for the selected environment', async () => {
-    const writeText = jest.fn();
+    const writeText = jest.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     setEnvData({ environments: [deployedEnv] });
     mockUseEntity.mockReturnValue({
