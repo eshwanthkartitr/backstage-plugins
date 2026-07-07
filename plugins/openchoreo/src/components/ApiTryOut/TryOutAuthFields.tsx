@@ -26,8 +26,13 @@ const useStyles = makeStyles(theme => ({
   },
   label: {
     display: 'block',
-    fontSize: 12,
-    color: theme.palette.text.secondary,
+    // Override swagger-ui's `.swagger-ui label` styling (bold/dark/sans-serif)
+    // so field labels are consistent here and in the (non-swagger) GraphQL view,
+    // and match the "Endpoint" label in the connection panel.
+    fontFamily: `${theme.typography.fontFamily} !important`,
+    fontSize: '12px !important',
+    fontWeight: '500 !important' as unknown as number,
+    color: `${theme.palette.text.secondary} !important`,
     marginBottom: theme.spacing(0.5),
   },
   inputWrap: {

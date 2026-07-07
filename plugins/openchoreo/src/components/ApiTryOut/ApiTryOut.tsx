@@ -122,17 +122,6 @@ const usePanelStyles = makeStyles(theme => ({
         : lightTokens.shadow.card
     } !important`,
   },
-  cardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing(2),
-  },
-  cardTitle: {
-    fontWeight: 600,
-    fontSize: theme.typography.h6.fontSize,
-    color: theme.palette.text.primary,
-  },
   selector: {
     maxWidth: 320,
   },
@@ -140,8 +129,11 @@ const usePanelStyles = makeStyles(theme => ({
     marginTop: theme.spacing(2),
   },
   endpointLabel: {
-    fontWeight: 600,
-    color: theme.palette.text.secondary,
+    display: 'block',
+    // Match the auth field labels (Header name / API key value).
+    fontSize: '12px !important',
+    fontWeight: '500 !important' as unknown as number,
+    color: `${theme.palette.text.secondary} !important`,
     marginBottom: theme.spacing(0.5),
   },
   inlineUrlRow: {
@@ -229,7 +221,7 @@ const TryOutConnectionPanel = () => {
           />
         </Box>
         <Box className={classes.endpointRow}>
-          <Typography variant="body2" className={classes.endpointLabel}>
+          <Typography variant="caption" className={classes.endpointLabel}>
             Endpoint
           </Typography>
           {activeUrl ? (
@@ -266,11 +258,9 @@ const TryOutConnectionPanel = () => {
 
   return (
     <Card padding={24} className={classes.card}>
-      <Box className={classes.cardHeader}>
-        <Typography variant="h5" className={classes.cardTitle}>
-          Connection
-        </Typography>
-      </Box>
+      <Typography variant="subtitle2" className={classes.authHeading}>
+        Connection
+      </Typography>
       {renderSelector()}
       <div className={classes.authArea}>
         <Typography variant="subtitle2" className={classes.authHeading}>
