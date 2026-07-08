@@ -113,6 +113,13 @@ const undeployedEnv: Environment = {
   endpoints: [],
 };
 
+// Deployed (has an endpoint) but the endpoint exposes no resolvable URL.
+const deployedNoUrlEnv: Environment = {
+  name: 'qa',
+  deployment: {},
+  endpoints: [{ name: 'ep-no-url' }],
+};
+
 function setEnvData(overrides: Partial<ReturnType<typeof baseEnvData>> = {}) {
   mockUseEnvironmentData.mockReturnValue({ ...baseEnvData(), ...overrides });
 }
@@ -239,7 +246,7 @@ describe('ApiTryOut', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows a no-environments notice when none exist', () => {
+  it('shows the no-deployments banner when no environments exist', () => {
     setEnvData({ environments: [] });
     mockUseEntity.mockReturnValue({
       entity: apiEntity({
@@ -250,7 +257,36 @@ describe('ApiTryOut', () => {
 
     render(<ApiTryOut />);
 
-    expect(screen.getByText(/No environments found/i)).toBeInTheDocument();
+    expect(screen.getByTestId('empty-state')).toHaveTextContent(
+      'No deployments available',
+    );
+    expect(screen.queryByTestId('graphql-console')).not.toBeInTheDocument();
+  });
+
+  it('shows the no-deployments banner when no environment is deployed', () => {
+    setEnvData({ environments: [undeployedEnv] });
+    mockUseEntity.mockReturnValue({
+      entity: apiEntity({ type: 'openapi', definition: OPENAPI_DEF }),
+    });
+
+    render(<ApiTryOut />);
+
+    expect(screen.getByTestId('empty-state')).toHaveTextContent(
+      'No deployments available',
+    );
+    expect(screen.queryByTestId('openapi-widget')).not.toBeInTheDocument();
+  });
+
+  it('renders the console (not the banner) when access to environments is forbidden', () => {
+    setEnvData({ isForbidden: true, environments: [] });
+    mockUseEntity.mockReturnValue({
+      entity: apiEntity({ type: 'openapi', definition: OPENAPI_DEF }),
+    });
+
+    render(<ApiTryOut />);
+
+    expect(screen.getByTestId('openapi-widget')).toBeInTheDocument();
+    expect(screen.queryByText('No deployments available')).not.toBeInTheDocument();
   });
 
   it('renders the endpoint URL and a copy button for the selected environment', async () => {
@@ -274,7 +310,7 @@ describe('ApiTryOut', () => {
   });
 
   it('shows "no public URL" when the selected environment exposes no endpoint', async () => {
-    setEnvData({ environments: [undeployedEnv] });
+    setEnvData({ environments: [deployedNoUrlEnv] });
     mockUseEntity.mockReturnValue({
       entity: apiEntity({
         type: 'graphql',
@@ -309,7 +345,7 @@ describe('ApiTryOut', () => {
     await waitFor(() => expect(graphQlProps.url).toBeUndefined());
   });
 
-  it('re-syncs to the refreshed environment when its endpoints change on refetch', async () => {
+  it('swaps the console for the no-deployments banner when the last deployment disappears on refetch', async () => {
     setEnvData({ environments: [deployedEnv] });
     mockUseEntity.mockReturnValue({
       entity: apiEntity({
@@ -323,12 +359,17 @@ describe('ApiTryOut', () => {
       expect(graphQlProps.url).toBe('https://api.example.com:443/v1'),
     );
 
-    // Refetch returns a same-named environment whose endpoint is gone; the
-    // console must drop the now-invalid URL rather than keep the stale one.
+    // Refetch returns a same-named environment whose endpoint is gone: nothing
+    // is deployed anymore, so the console is replaced by the banner.
     setEnvData({ environments: [{ ...deployedEnv, endpoints: [] }] });
     rerender(<ApiTryOut />);
 
-    await waitFor(() => expect(graphQlProps.url).toBeUndefined());
+    await waitFor(() =>
+      expect(screen.getByTestId('empty-state')).toHaveTextContent(
+        'No deployments available',
+      ),
+    );
+    expect(screen.queryByTestId('graphql-console')).not.toBeInTheDocument();
   });
 
   it('re-defaults the selection when the selected environment is removed on refetch', async () => {
@@ -345,10 +386,30 @@ describe('ApiTryOut', () => {
       expect(graphQlProps.url).toBe('https://api.example.com:443/v1'),
     );
 
-    // 'dev' disappears; only the URL-less 'staging' remains.
-    setEnvData({ environments: [undeployedEnv] });
+    // 'dev' disappears and a different deployed env 'prod' takes its place; the
+    // selection re-defaults to the new deployed environment's URL.
+    const prodEnv: Environment = {
+      ...deployedEnv,
+      name: 'prod',
+      endpoints: [
+        {
+          name: 'ep1',
+          externalURLs: {
+            public: {
+              host: 'prod.example.com',
+              scheme: 'https',
+              port: 443,
+              path: '/v1',
+            },
+          },
+        },
+      ],
+    };
+    setEnvData({ environments: [prodEnv] });
     rerender(<ApiTryOut />);
 
-    await waitFor(() => expect(graphQlProps.url).toBeUndefined());
+    await waitFor(() =>
+      expect(graphQlProps.url).toBe('https://prod.example.com:443/v1'),
+    );
   });
 });

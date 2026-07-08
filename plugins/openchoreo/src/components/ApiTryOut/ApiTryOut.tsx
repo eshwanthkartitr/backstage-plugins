@@ -397,6 +397,16 @@ export const ApiTryOut = () => {
     [selected, endpointName],
   );
 
+  // Whether the component is deployed to at least one environment. An
+  // environment with endpoints is "deployed" here (matching the "Not deployed
+  // to this environment" rule used by the environment selector below). Without
+  // any deployment there is no running API to invoke, so the console is
+  // replaced by a banner instead of falling back to the definition's servers.
+  const hasDeployment = useMemo(
+    () => environments.some(e => e.endpoints.length > 0),
+    [environments],
+  );
+
   const effectiveDefinition = useMemo(() => {
     if (!definition) {
       return undefined;
@@ -445,6 +455,38 @@ export const ApiTryOut = () => {
     );
   }
 
+  // Only OpenAPI (SwaggerUI) and GraphQL have interactive, environment-aware
+  // consoles. Every other API type shows a notice — the raw schema is still
+  // available on the Definition tab.
+  if (!isOpenApi && !isGraphQl) {
+    return (
+      <EmptyState
+        missing="info"
+        title="Try Out not available"
+        description="Interactive testing isn't available for this API type yet."
+      />
+    );
+  }
+
+  // Environment data is still loading — wait before deciding whether anything
+  // is deployed, so the "no deployments" banner never flashes mid-load.
+  if (loading) {
+    return <Progress />;
+  }
+
+  // Nothing is deployed to any environment, so there is no running API to try
+  // out against. (When access is forbidden we can't tell, so fall through to
+  // the console, which falls back to the definition's own servers.)
+  if (!isForbidden && !hasDeployment) {
+    return (
+      <EmptyState
+        missing="data"
+        title="No deployments available"
+        description="This API isn't deployed to any environment yet. Go to the Deploy tab and deploy the component to try out its API."
+      />
+    );
+  }
+
   // GraphQL: dedicated, environment-aware GraphiQL console (doesn't use the
   // stock api-docs widget). The connection panel renders above the IDE.
   if (isGraphQl) {
@@ -459,19 +501,6 @@ export const ApiTryOut = () => {
           />
         </Suspense>
       </ConnectionContext.Provider>
-    );
-  }
-
-  // Only OpenAPI (SwaggerUI) and GraphQL (handled above) have interactive,
-  // environment-aware consoles. Every other API type shows a notice — the raw
-  // schema is still available on the Definition tab.
-  if (!isOpenApi) {
-    return (
-      <EmptyState
-        missing="info"
-        title="Try Out not available"
-        description="Interactive testing isn't available for this API type yet."
-      />
     );
   }
 
