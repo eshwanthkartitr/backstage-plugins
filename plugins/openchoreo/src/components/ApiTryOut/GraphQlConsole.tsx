@@ -11,6 +11,40 @@ const useStyles = makeStyles({
     height: '75vh',
     minHeight: 500,
   },
+  /**
+   * Bridge GraphiQL's built-in dark theme onto the OpenChoreo dark palette.
+   * GraphiQL exposes its colors as HSL-triple CSS custom properties on
+   * `.graphiql-container`; overriding them here (only in dark mode) makes the
+   * console background and primary accents match our design tokens instead of
+   * GraphiQL's stock near-black + pink. Values mirror `darkTokens`:
+   *   --color-base    -> surface.paper  #1a1d26
+   *   --color-primary -> primary.main   #8fa0ea
+   */
+  dark: {
+    // GraphiQL scopes its own dark tokens via `body.graphiql-dark
+    // .graphiql-container` (specificity 0,2,1), so `!important` is needed for
+    // these container-level overrides to win the cascade.
+    '& .graphiql-container': {
+      '--color-base': '225, 19%, 13% !important',
+      '--color-primary': '229, 68%, 74% !important',
+    },
+    // The execute ("run") button fills with --color-primary; our lighter accent
+    // needs a dark glyph (GraphiQL's default is white) to stay legible.
+    '& .graphiql-execute-button > svg': {
+      color: '#0f1117',
+    },
+  },
+  /**
+   * Light mode: only recolor GraphiQL's primary accent (its stock light primary
+   * is pink) to OpenChoreo's light primary. Background stays GraphiQL's default
+   * light surface. --color-primary -> primary.main #5568c4; the button keeps
+   * GraphiQL's default white glyph, which is legible on this blue.
+   */
+  light: {
+    '& .graphiql-container': {
+      '--color-primary': '230, 48%, 55% !important',
+    },
+  },
 });
 
 export interface GraphQlConsoleProps {
@@ -39,7 +73,8 @@ const GraphQlConsole = ({
   const muiTheme = useTheme();
   // Match GraphiQL's theme to the active Backstage/OpenChoreo theme. Forcing it
   // also removes GraphiQL's own light/dark toggle so the two stay in sync.
-  const forcedTheme = muiTheme.palette.type === 'dark' ? 'dark' : 'light';
+  const isDark = muiTheme.palette.type === 'dark';
+  const forcedTheme = isDark ? 'dark' : 'light';
 
   const schema = useMemo<GraphQLSchema | undefined>(() => {
     try {
@@ -71,7 +106,9 @@ const GraphQlConsole = ({
   }, [url, headersRef]);
 
   return (
-    <Box className={classes.root}>
+    <Box
+      className={`${classes.root} ${isDark ? classes.dark : classes.light}`}
+    >
       <GraphiQL fetcher={fetcher} schema={schema} forcedTheme={forcedTheme} />
     </Box>
   );
