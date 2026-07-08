@@ -48,8 +48,6 @@ interface ConnectionContextValue {
   filterEnvs: FilterEnvironment[];
   filterSelected: FilterEnvironment | null;
   onSelect: (name: string | null) => void;
-  loading: boolean;
-  isForbidden: boolean;
   activeUrl?: string;
   auth: TryOutAuth;
 }
@@ -176,36 +174,13 @@ const TryOutConnectionPanel = () => {
     return null;
   }
 
-  const {
-    environments,
-    filterEnvs,
-    filterSelected,
-    onSelect,
-    loading,
-    isForbidden,
-    activeUrl,
-    auth,
-  } = ctx;
+  const { environments, filterEnvs, filterSelected, onSelect, activeUrl, auth } =
+    ctx;
 
+  // The panel only renders once the console is shown, which the top-level
+  // ApiTryOut guards already gate on a deployed, accessible environment — so the
+  // selector can render unconditionally here.
   const renderSelector = () => {
-    if (loading) {
-      return <Progress />;
-    }
-    if (isForbidden) {
-      return (
-        <Typography variant="body2" color="textSecondary">
-          You don't have access to environment URLs. Testing against the
-          definition's own servers.
-        </Typography>
-      );
-    }
-    if (environments.length === 0) {
-      return (
-        <Typography variant="body2" color="textSecondary">
-          No environments found. Testing against the definition's own servers.
-        </Typography>
-      );
-    }
     return (
       <>
         <Box className={classes.selector}>
@@ -425,12 +400,10 @@ export const ApiTryOut = () => {
         setSelected(
           name ? environments.find(e => e.name === name) ?? null : null,
         ),
-      loading,
-      isForbidden,
       activeUrl,
       auth,
     }),
-    [environments, filterEnvs, selected, loading, isForbidden, activeUrl, auth],
+    [environments, filterEnvs, selected, activeUrl, auth],
   );
 
   // Stable interceptor: reads the latest auth headers from the ref at request
@@ -469,15 +442,26 @@ export const ApiTryOut = () => {
   }
 
   // Environment data is still loading — wait before deciding whether anything
-  // is deployed, so the "no deployments" banner never flashes mid-load.
+  // is deployed, so the banners below never flash mid-load.
   if (loading) {
     return <Progress />;
   }
 
+  // Without access to environment URLs there is no gateway to target, so an
+  // interactive console can't be offered.
+  if (isForbidden) {
+    return (
+      <EmptyState
+        missing="info"
+        title="Environment access required"
+        description="You don't have access to environment URLs for this API. Contact your administrator to request access."
+      />
+    );
+  }
+
   // Nothing is deployed to any environment, so there is no running API to try
-  // out against. (When access is forbidden we can't tell, so fall through to
-  // the console, which falls back to the definition's own servers.)
-  if (!isForbidden && !hasDeployment) {
+  // out against.
+  if (!hasDeployment) {
     return (
       <EmptyState
         missing="data"

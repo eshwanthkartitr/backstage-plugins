@@ -277,7 +277,7 @@ describe('ApiTryOut', () => {
     expect(screen.queryByTestId('openapi-widget')).not.toBeInTheDocument();
   });
 
-  it('renders the console (not the banner) when access to environments is forbidden', () => {
+  it('shows the access-required banner (not the console) when environment access is forbidden', () => {
     setEnvData({ isForbidden: true, environments: [] });
     mockUseEntity.mockReturnValue({
       entity: apiEntity({ type: 'openapi', definition: OPENAPI_DEF }),
@@ -285,8 +285,13 @@ describe('ApiTryOut', () => {
 
     render(<ApiTryOut />);
 
-    expect(screen.getByTestId('openapi-widget')).toBeInTheDocument();
-    expect(screen.queryByText('No deployments available')).not.toBeInTheDocument();
+    expect(screen.getByTestId('empty-state')).toHaveTextContent(
+      'Environment access required',
+    );
+    expect(screen.queryByTestId('openapi-widget')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('No deployments available'),
+    ).not.toBeInTheDocument();
   });
 
   it('renders the endpoint URL and a copy button for the selected environment', async () => {
