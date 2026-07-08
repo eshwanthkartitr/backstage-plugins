@@ -106,9 +106,7 @@ const GraphQlConsole = ({
   }, [url, headersRef]);
 
   return (
-    <Box
-      className={`${classes.root} ${isDark ? classes.dark : classes.light}`}
-    >
+    <Box className={`${classes.root} ${isDark ? classes.dark : classes.light}`}>
       <GraphiQL fetcher={fetcher} schema={schema} forcedTheme={forcedTheme} />
     </Box>
   );
