@@ -9,6 +9,185 @@ import {
   translateProjectToEntity,
 } from '@openchoreo/backstage-plugin-catalog-backend-module';
 
+type OpenChoreoClient = ReturnType<typeof createOpenChoreoApiClient>;
+
+type ActionLogger = {
+  info: (message: string) => void;
+  warn: (message: string) => void;
+};
+
+const environmentRefName = (
+  ref: { name?: string } | string | undefined,
+): string | undefined => (typeof ref === 'string' ? ref : ref?.name);
+
+/**
+ * Expands the environment names a DeploymentPipeline promotes through:
+ * source + target refs of every promotion path, deduplicated, in pipeline
+ * order. Mirrors the expansion the Deploy tab performs in
+ * EnvironmentInfoService.
+ */
+const expandPipelineEnvironments = (pipeline: {
+  spec?: {
+    promotionPaths?: Array<{
+      sourceEnvironmentRef?: { name?: string } | string;
+      targetEnvironmentRefs?: Array<{ name?: string } | string>;
+    }>;
+  };
+}): string[] => {
+  const environments: string[] = [];
+  const seen = new Set<string>();
+  const add = (name: string | undefined) => {
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      environments.push(name);
+    }
+  };
+  for (const path of pipeline.spec?.promotionPaths ?? []) {
+    add(environmentRefName(path.sourceEnvironmentRef));
+    for (const target of path.targetEnvironmentRefs ?? []) {
+      add(environmentRefName(target));
+    }
+  }
+  return environments;
+};
+
+/**
+ * Creates one unpinned ProjectReleaseBinding per environment of the
+ * project's DeploymentPipeline (name `{project}-{env}`, spec.owner +
+ * spec.environment only). `spec.projectRelease` is deliberately left unset:
+ * the first ProjectRelease does not exist yet at project-creation time; the
+ * control plane seeds empty pins with the latest release once it is cut.
+ *
+ * Bindings are created concurrently (Promise.allSettled) to keep the
+ * scaffolder step fast, then aggregated into created/failed sets in pipeline
+ * order.
+ *
+ * Failure semantics: binding creation is best-effort and never fails the
+ * scaffolder task, because the project is already created at this point and
+ * the user must still be able to navigate to it (via the template's "View
+ * Project" link). A pipeline fetch failure only warns; per-environment
+ * failures are logged and the other environments still proceed; 409 means the
+ * binding already exists (safe re-run) and counts as success. Even when every
+ * create fails the step succeeds with an empty result and a warning; the user
+ * can deploy per environment from the Deploy tab.
+ */
+const createInitialReleaseBindings = async (options: {
+  client: OpenChoreoClient;
+  logger: ActionLogger;
+  namespaceName: string;
+  projectName: string;
+  pipelineName: string;
+}): Promise<{ created: string[]; failed: string[] }> => {
+  const { client, logger, namespaceName, projectName, pipelineName } = options;
+
+  let environments: string[];
+  try {
+    const { data, error, response } = await client.GET(
+      '/api/v1/namespaces/{namespaceName}/deploymentpipelines/{deploymentPipelineName}',
+      {
+        params: {
+          path: { namespaceName, deploymentPipelineName: pipelineName },
+        },
+      },
+    );
+    if (error || !response.ok || !data) {
+      logger.warn(
+        `Auto deploy: failed to fetch deployment pipeline '${pipelineName}' ` +
+          `(status ${response?.status}). No release bindings were created; ` +
+          `use the Deploy tab to deploy the project per environment.`,
+      );
+      return { created: [], failed: [] };
+    }
+    environments = expandPipelineEnvironments(data);
+  } catch (error) {
+    logger.warn(
+      `Auto deploy: failed to fetch deployment pipeline '${pipelineName}': ${error}. ` +
+        `No release bindings were created; use the Deploy tab to deploy the project per environment.`,
+    );
+    return { created: [], failed: [] };
+  }
+
+  if (environments.length === 0) {
+    logger.warn(
+      `Auto deploy: deployment pipeline '${pipelineName}' has no environments; no release bindings created.`,
+    );
+    return { created: [], failed: [] };
+  }
+
+  // Fan out over all environments concurrently. Each task resolves to the
+  // created binding name or rejects with a contextual message; allSettled
+  // preserves input order so results map back to `environments` by index.
+  const results = await Promise.allSettled(
+    environments.map(async environment => {
+      const bindingName = `${projectName}-${environment}`;
+      try {
+        const { error, response } = await client.POST(
+          '/api/v1/namespaces/{namespaceName}/projectreleasebindings',
+          {
+            params: {
+              path: { namespaceName },
+            },
+            body: {
+              metadata: {
+                name: bindingName,
+                namespace: namespaceName,
+              },
+              spec: {
+                owner: {
+                  projectName,
+                },
+                environment,
+              },
+            },
+          },
+        );
+        if (response.ok) {
+          logger.info(`Auto deploy: created release binding '${bindingName}'`);
+        } else if (response.status === 409) {
+          logger.info(
+            `Auto deploy: release binding '${bindingName}' already exists`,
+          );
+        } else {
+          throw new Error(
+            `(status ${response.status})${
+              error ? `: ${JSON.stringify(error)}` : ''
+            }`,
+          );
+        }
+        return bindingName;
+      } catch (error) {
+        throw new Error(
+          `failed to create release binding '${bindingName}': ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+      }
+    }),
+  );
+
+  const created: string[] = [];
+  const failures: string[] = [];
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      created.push(result.value);
+    } else {
+      failures.push(environments[index]);
+      logger.warn(`Auto deploy: ${result.reason.message}`);
+    }
+  });
+
+  if (failures.length > 0) {
+    logger.warn(
+      `Auto deploy: created ${created.length} of ${environments.length} release ` +
+        `binding(s); ${failures.length} failed (${failures.join(', ')}). The ` +
+        `project was created; use the Deploy tab to deploy the remaining ` +
+        `environments.`,
+    );
+  }
+
+  return { created, failed: failures };
+};
+
 export const createProjectAction = (
   config: Config,
   immediateCatalog: ImmediateCatalogService,
@@ -36,6 +215,14 @@ export const createProjectAction = (
           z.string({
             description: 'The deployment pipeline for the project',
           }),
+        autoDeploy: z =>
+          z
+            .boolean({
+              description:
+                'Create one unpinned ProjectReleaseBinding per environment of ' +
+                'the deployment pipeline after the project is created (default true)',
+            })
+            .optional(),
         typeKind: z =>
           z
             .enum(['ProjectType', 'ClusterProjectType'], {
@@ -69,6 +256,30 @@ export const createProjectAction = (
           z.string({
             description: 'Entity reference for the created project',
           }),
+        createdBindings: z =>
+          z
+            .array(z.string(), {
+              description:
+                'Names of the ProjectReleaseBindings created for auto deploy',
+            })
+            .optional(),
+        autoDeployFailed: z =>
+          z
+            .boolean({
+              description:
+                'True when auto deploy could not create one or more release ' +
+                'bindings. Drives the conditional manual-deploy warning on the ' +
+                'task page.',
+            })
+            .optional(),
+        failedEnvironments: z =>
+          z
+            .string({
+              description:
+                'Comma-separated list of environments whose release binding ' +
+                'could not be created (empty when auto deploy succeeded).',
+            })
+            .optional(),
       },
     },
     async handler(ctx) {
@@ -220,10 +431,34 @@ export const createProjectAction = (
           );
         }
 
-        // Set outputs for the scaffolder
+        const autoDeploy = ctx.input.autoDeploy ?? true;
+        let createdBindings: string[] = [];
+        let failedBindings: string[] = [];
+        if (autoDeploy) {
+          ({ created: createdBindings, failed: failedBindings } =
+            await createInitialReleaseBindings({
+              client,
+              logger: ctx.logger,
+              namespaceName,
+              projectName,
+              // Mirror the openchoreo-api service default so both sides agree
+              // when no pipeline is picked.
+              pipelineName: ctx.input.deploymentPipeline || 'default',
+            }));
+        } else {
+          ctx.logger.info('Auto deploy disabled - no release bindings created');
+        }
+
+        // Drive the conditional manual-deploy warning on the task page
+        // (rendered below the "View Project" link) when auto deploy could not
+        // create some bindings. The template's output.text entry has an `if`
+        // condition bound to autoDeployFailed, so no card shows on success.
         ctx.output('projectName', projectName);
         ctx.output('namespaceName', namespaceName);
         ctx.output('entityRef', `system:${namespaceName}/${projectName}`);
+        ctx.output('createdBindings', createdBindings);
+        ctx.output('autoDeployFailed', failedBindings.length > 0);
+        ctx.output('failedEnvironments', failedBindings.join(', '));
       } catch (error) {
         ctx.logger.error(`Error creating project: ${error}`);
         throw error instanceof Error

@@ -132,6 +132,29 @@ describe('PtdToTemplateConverter', () => {
       );
     });
 
+    it('emits a default-on Auto Deploy toggle in the Project Metadata section', () => {
+      const pt: ProjectTypeCRD = {
+        metadata: { name: 'web-app' },
+        spec: {},
+      };
+
+      const result = converter.convertPtdToTemplateEntity(pt, 'finance');
+      const autoDeploy = (result.spec as any).parameters[0].properties
+        .auto_deploy;
+
+      expect(autoDeploy.type).toBe('boolean');
+      expect(autoDeploy.title).toBe('Auto Deploy');
+      expect(autoDeploy.default).toBe(true);
+      expect(autoDeploy['ui:field']).toBe('SwitchField');
+      // Opting out has consequences (manual deploy before any component
+      // deploys); SwitchField surfaces this while the toggle is off.
+      expect(autoDeploy['ui:options'].offWarning).toMatch(/deploy it manually/);
+      // Not in the section's required list: a toggle always carries a value.
+      expect((result.spec as any).parameters[0].required).not.toContain(
+        'auto_deploy',
+      );
+    });
+
     it('pre-fills the namespace dropdown with the type own namespace (namespaced scope)', () => {
       const pt: ProjectTypeCRD = { metadata: { name: 'web-app' }, spec: {} };
 
@@ -197,6 +220,7 @@ describe('PtdToTemplateConverter', () => {
         displayName: '${{ parameters.displayName }}',
         description: '${{ parameters.description }}',
         deploymentPipeline: '${{ parameters.deployment_pipeline }}',
+        autoDeploy: '${{ parameters.auto_deploy }}',
         typeKind: 'ProjectType',
         typeName: 'web-app',
         parameters: '${{ parameters.parameters }}',
@@ -217,6 +241,27 @@ describe('PtdToTemplateConverter', () => {
             "system:${{ steps['create-project'].output.namespaceName }}/${{ steps['create-project'].output.projectName }}",
         },
       ]);
+    });
+
+    it('emits a conditional manual-deploy warning text output', () => {
+      const pt: ProjectTypeCRD = { metadata: { name: 'web-app' }, spec: {} };
+
+      const result = converter.convertPtdToTemplateEntity(pt, 'finance');
+      const output = (result.spec as any).output;
+
+      // A static, schema-valid array (output.text must be an array) whose single
+      // entry is dropped by the scaffolder when the `if` condition is falsy.
+      // `icon: 'warning'` selects the alert severity in the app's custom
+      // outputs renderer; no title so the note renders as a plain warning bar.
+      expect(output.text).toHaveLength(1);
+      expect(output.text[0].if).toBe(
+        "${{ steps['create-project'].output.autoDeployFailed }}",
+      );
+      expect(output.text[0].icon).toBe('warning');
+      expect(output.text[0].title).toBeUndefined();
+      expect(output.text[0].content).toContain(
+        "${{ steps['create-project'].output.failedEnvironments }}",
+      );
     });
 
     it('formats hyphenated ProjectType names as title case', () => {

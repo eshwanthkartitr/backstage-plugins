@@ -139,6 +139,24 @@ export class PtdToTemplateConverter {
                 "system:${{ steps['create-project'].output.namespaceName }}/${{ steps['create-project'].output.projectName }}",
             },
           ],
+          // Rendered as a warning bar below the "View Project" link, but only
+          // when auto deploy could not create some release bindings. The `if`
+          // condition is evaluated by the scaffolder after the step runs
+          // (falsy items are dropped), so on success no bar is shown. `icon`
+          // drives the alert severity in OpenChoreoTemplateOutputs (the app's
+          // custom outputs renderer); a title is intentionally omitted.
+          text: [
+            {
+              if: "${{ steps['create-project'].output.autoDeployFailed }}",
+              icon: 'warning',
+              content:
+                'Auto Deploy could not create release binding(s) for ' +
+                "**${{ steps['create-project'].output.failedEnvironments }}**. " +
+                'The project was created successfully, but it will not be ' +
+                'deployed automatically — deploy it manually from the ' +
+                "project's **Deploy** tab.",
+            },
+          ],
         },
       } as any,
     };
@@ -167,7 +185,7 @@ export class PtdToTemplateConverter {
 
   /**
    * Two parameter sections:
-   *   1. Project Metadata — namespace + project_name (+ display name / description / deployment pipeline)
+   *   1. Project Metadata — namespace + project_name (+ display name / description / deployment pipeline / auto deploy)
    *   2. <Display Name> Details — single `parameters` field rendered by `ProjectParametersField`
    *                               which reads the schema from ui:options.ptdSchema
    *
@@ -226,6 +244,20 @@ export class PtdToTemplateConverter {
           description: 'Deployment pipeline to associate with this project',
           'ui:field': 'DeploymentPipelinePicker',
         },
+        auto_deploy: {
+          title: 'Auto Deploy',
+          type: 'boolean',
+          description:
+            'Automatically deploys the project to all environments in the deployment pipeline once created',
+          default: true,
+          'ui:field': 'SwitchField',
+          'ui:options': {
+            offWarning:
+              'The project will not be deployed to any environment. You will ' +
+              'need to deploy it manually from the project’s Deploy tab ' +
+              'before you can deploy components.',
+          },
+        },
       },
     };
 
@@ -265,6 +297,7 @@ export class PtdToTemplateConverter {
           displayName: '${{ parameters.displayName }}',
           description: '${{ parameters.description }}',
           deploymentPipeline: '${{ parameters.deployment_pipeline }}',
+          autoDeploy: '${{ parameters.auto_deploy }}',
           typeKind: ptdKind,
           typeName: pt.metadata.name,
           parameters: '${{ parameters.parameters }}',
