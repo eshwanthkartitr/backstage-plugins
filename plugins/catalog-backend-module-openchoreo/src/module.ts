@@ -80,6 +80,7 @@ export const catalogModuleOpenchoreo = createBackendModule({
         tokenService: openChoreoTokenServiceRef,
         annotationStore: annotationStoreRef,
         events: eventsServiceRef,
+        urlReader: coreServices.urlReader,
       },
       async init({
         catalog,
@@ -92,6 +93,7 @@ export const catalogModuleOpenchoreo = createBackendModule({
         tokenService,
         annotationStore,
         events,
+        urlReader,
       }) {
         const openchoreoConfig = config.getOptionalConfig('openchoreo');
         const frequency =
@@ -212,6 +214,7 @@ export const catalogModuleOpenchoreo = createBackendModule({
             eventsEnabled ? events : undefined,
             catalogService,
             auth,
+            urlReader,
           ),
         );
 
