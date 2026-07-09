@@ -120,6 +120,26 @@ const deployedNoUrlEnv: Environment = {
   endpoints: [{ name: 'ep-no-url' }],
 };
 
+// Deployed, but the endpoint is only exposed on a cluster-internal URL — not
+// reachable from the browser.
+const internalOnlyEnv: Environment = {
+  name: 'dev',
+  deployment: {},
+  endpoints: [
+    {
+      name: 'ep1',
+      internalURLs: {
+        default: {
+          host: 'svc.default.svc.cluster.local',
+          scheme: 'http',
+          port: 8080,
+          path: '/v1',
+        },
+      },
+    },
+  ],
+};
+
 function setEnvData(overrides: Partial<ReturnType<typeof baseEnvData>> = {}) {
   mockUseEnvironmentData.mockReturnValue({ ...baseEnvData(), ...overrides });
 }
@@ -314,8 +334,24 @@ describe('ApiTryOut', () => {
     expect(writeText).toHaveBeenCalledWith('https://api.example.com:443/v1');
   });
 
-  it('shows "no public URL" when the selected environment exposes no endpoint', async () => {
-    setEnvData({ environments: [deployedNoUrlEnv] });
+  it('shows the internal-only banner when the API has only internal endpoints', () => {
+    setEnvData({ environments: [internalOnlyEnv] });
+    mockUseEntity.mockReturnValue({
+      entity: apiEntity({ type: 'openapi', definition: OPENAPI_DEF }),
+    });
+
+    render(<ApiTryOut />);
+
+    expect(screen.getByTestId('empty-state')).toHaveTextContent(
+      'API is only exposed internally',
+    );
+    expect(screen.queryByTestId('openapi-widget')).not.toBeInTheDocument();
+  });
+
+  it('shows "no public URL" when the selected environment exposes no endpoint URL', async () => {
+    // A reachable env ('dev') is present so the console renders; switching to
+    // the URL-less 'qa' environment surfaces the per-environment notice.
+    setEnvData({ environments: [deployedEnv, deployedNoUrlEnv] });
     mockUseEntity.mockReturnValue({
       entity: apiEntity({
         type: 'graphql',
@@ -324,6 +360,8 @@ describe('ApiTryOut', () => {
     });
 
     render(<ApiTryOut />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'qa' }));
 
     expect(
       await screen.findByText(/No public URL is exposed/i),

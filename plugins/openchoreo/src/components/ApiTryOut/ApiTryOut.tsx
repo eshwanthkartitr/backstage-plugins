@@ -33,7 +33,10 @@ import {
   useEnvironmentData,
   type Environment,
 } from '../Environments/hooks/useEnvironmentData';
-import { derivePrimaryUrl } from '../Environments/utils/invokeUrlUtils';
+import {
+  derivePrimaryUrl,
+  type PrimaryEndpointUrl,
+} from '../Environments/utils/invokeUrlUtils';
 import { TryOutAuthFields } from './TryOutAuthFields';
 import { useTryOutAuth, type TryOutAuth } from './useTryOutAuth';
 
@@ -86,19 +89,22 @@ function withServerUrl(definition: string, url: string): string {
   }
 }
 
-/** Resolve the invoke base URL for a specific environment + endpoint name. */
-function resolveEnvUrl(
+/**
+ * Resolve the primary invoke URL (with its visibility label) for a specific
+ * environment + endpoint name.
+ */
+function resolveEnvPrimary(
   env: Environment,
   endpointName: string | undefined,
-): string | undefined {
+): PrimaryEndpointUrl | null {
   if (env.endpoints.length === 0) {
-    return undefined;
+    return null;
   }
   const match = endpointName
     ? env.endpoints.find(e => e.name === endpointName)
     : undefined;
   const endpoints = match ? [match] : env.endpoints;
-  return derivePrimaryUrl(endpoints)?.url;
+  return derivePrimaryUrl(endpoints);
 }
 
 const usePanelStyles = makeStyles(theme => ({
@@ -373,10 +379,11 @@ export const ApiTryOut = () => {
     [environments, namespace],
   );
 
-  const activeUrl = useMemo(
-    () => (selected ? resolveEnvUrl(selected, endpointName) : undefined),
+  const activePrimary = useMemo(
+    () => (selected ? resolveEnvPrimary(selected, endpointName) : null),
     [selected, endpointName],
   );
+  const activeUrl = activePrimary?.url;
 
   // Whether the component is deployed to at least one environment. An
   // environment with endpoints is "deployed" here (matching the "Not deployed
@@ -386,6 +393,18 @@ export const ApiTryOut = () => {
   const hasDeployment = useMemo(
     () => environments.some(e => e.endpoints.length > 0),
     [environments],
+  );
+
+  // Whether at least one environment exposes a browser-reachable (external /
+  // public) URL for this endpoint. Internal- and project-scoped URLs point at
+  // cluster-internal hosts the browser can't reach, so an interactive console
+  // targeting them would only ever produce failed requests.
+  const hasReachableDeployment = useMemo(
+    () =>
+      environments.some(
+        e => resolveEnvPrimary(e, endpointName)?.label === 'External',
+      ),
+    [environments, endpointName],
   );
 
   const effectiveDefinition = useMemo(() => {
@@ -473,6 +492,20 @@ export const ApiTryOut = () => {
         missing="data"
         title="No deployments available"
         description="This API isn't deployed to any environment yet. Go to the Deploy tab and deploy the component to try out its API."
+      />
+    );
+  }
+
+  // Deployed, but only through internal/project-scoped endpoints. Those hosts
+  // aren't reachable from the browser, so requests fired from an interactive
+  // console would always fail — show a notice instead of a console that can't
+  // work.
+  if (!hasReachableDeployment) {
+    return (
+      <EmptyState
+        missing="info"
+        title="API is only exposed internally"
+        description="This API is deployed but only has internal endpoints, which can't be reached from your browser. Expose it with an external (public) endpoint to try it out here."
       />
     );
   }
