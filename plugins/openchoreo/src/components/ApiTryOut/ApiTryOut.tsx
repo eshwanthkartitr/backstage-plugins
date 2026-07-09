@@ -174,8 +174,14 @@ const TryOutConnectionPanel = () => {
     return null;
   }
 
-  const { environments, filterEnvs, filterSelected, onSelect, activeUrl, auth } =
-    ctx;
+  const {
+    environments,
+    filterEnvs,
+    filterSelected,
+    onSelect,
+    activeUrl,
+    auth,
+  } = ctx;
 
   // The panel only renders once the console is shown, which the top-level
   // ApiTryOut guards already gate on a deployed, accessible environment — so the
