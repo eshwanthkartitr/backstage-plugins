@@ -1,11 +1,11 @@
 import { Grid } from '@material-ui/core';
 import {
-  EntityApiDefinitionCard,
   EntityConsumedApisCard,
   EntityConsumingComponentsCard,
   EntityProvidedApisCard,
   EntityProvidingComponentsCard,
 } from '@backstage/plugin-api-docs';
+import { ApiRawDefinitionCard } from './ApiDefinitionTabs';
 import {
   EntityAboutCard,
   EntityHasComponentsCard,
@@ -116,6 +116,7 @@ import {
   ResourceDefinitionTab,
   ResourceEnvironments,
   ProjectEnvironments,
+  ApiTryOut,
 } from '@openchoreo/backstage-plugin';
 import { EntityLayoutWithDelete } from './EntityLayoutWithDelete';
 
@@ -656,9 +657,13 @@ const apiPage = (
     </EntityLayout.Route>
 
     <EntityLayout.Route path="/definition" title="Definition">
+      <ApiRawDefinitionCard />
+    </EntityLayout.Route>
+
+    <EntityLayout.Route path="/try-out" title="Try Out">
       <Grid container spacing={3}>
         <Grid item xs={12}>
-          <EntityApiDefinitionCard />
+          <ApiTryOut />
         </Grid>
       </Grid>
     </EntityLayout.Route>

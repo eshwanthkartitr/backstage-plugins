@@ -15,6 +15,7 @@ export type {
 } from './components/Environments/EnvironmentsContext';
 export { ResourceEnvironments } from './components/ResourceEnvironments';
 export { ProjectEnvironments } from './components/ProjectEnvironments';
+export { ApiTryOut } from './components/ApiTryOut';
 export { CellDiagram } from './components/CellDiagram/CellDiagram';
 export {
   WorkflowsOverviewCard,
