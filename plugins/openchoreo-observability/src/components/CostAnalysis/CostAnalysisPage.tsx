@@ -15,6 +15,7 @@ import {
   ForbiddenState,
   useProjectEnvironments,
 } from '@openchoreo/backstage-plugin-react';
+import { EnvironmentsStatusNotice } from '../common';
 import { CostAnalysisReport } from './CostAnalysisReport';
 import { EntityLinkContext } from '../RCA/RCAReport/EntityLinkContext';
 
@@ -29,7 +30,7 @@ const CostAnalysisListContent = () => {
   const {
     environments,
     loading: environmentsLoading,
-    error: environmentsError,
+    status: environmentsStatus,
   } = useProjectEnvironments(projectName, namespace);
   const { filters, updateFilters } = useUrlFilters({ environments });
 
@@ -95,6 +96,25 @@ const CostAnalysisListContent = () => {
     );
   };
 
+  // Wait for the environment resolution before rendering the filters, so the
+  // filter bar doesn't flash before we know whether to show the notice.
+  if (environmentsLoading) {
+    return <Progress />;
+  }
+
+  // No resolvable environments (empty, forbidden, or unavailable) → show only
+  // the notice, without the filters or reports.
+  if (environmentsStatus !== 'ok') {
+    return (
+      <Box>
+        <EnvironmentsStatusNotice
+          status={environmentsStatus}
+          feature="cost reports"
+        />
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {reportsLoading && <Progress />}
@@ -107,17 +127,6 @@ const CostAnalysisListContent = () => {
             environments={environments}
             environmentsLoading={environmentsLoading}
           />
-
-          {environmentsError && (
-            <Box mt={2} mb={2}>
-              <Alert severity="warning">
-                <Typography variant="body1">
-                  Failed to load environments. Environment filtering may not be
-                  available.
-                </Typography>
-              </Alert>
-            </Box>
-          )}
 
           {reportsError && renderError(reportsError)}
 

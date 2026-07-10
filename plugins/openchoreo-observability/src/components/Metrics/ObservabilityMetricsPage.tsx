@@ -20,6 +20,7 @@ import {
   useMetrics,
 } from '../../hooks';
 import { useProjectEnvironments } from '@openchoreo/backstage-plugin-react';
+import { EnvironmentsStatusNotice } from '../common';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import {
   ResourceMetrics,
@@ -45,7 +46,7 @@ const ObservabilityMetricsContent = () => {
   const {
     environments,
     loading: environmentsLoading,
-    error: environmentsError,
+    status: environmentsStatus,
   } = useProjectEnvironments(project, namespace);
 
   // URL-synced filters - must be after environments are available
@@ -100,9 +101,17 @@ const ObservabilityMetricsContent = () => {
     return <></>;
   }
 
-  if (environmentsError) {
-    // TODO: Add a toast notification here
-    return <></>;
+  // When the pipeline has no resolvable environments (empty, forbidden, or
+  // unavailable) there's nothing to filter or chart — show only the notice.
+  if (environmentsStatus !== 'ok') {
+    return (
+      <Box>
+        <EnvironmentsStatusNotice
+          status={environmentsStatus}
+          feature="metrics"
+        />
+      </Box>
+    );
   }
 
   const isLoading = environmentsLoading;

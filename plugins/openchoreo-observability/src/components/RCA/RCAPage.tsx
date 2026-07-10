@@ -15,6 +15,7 @@ import {
   ForbiddenState,
   useProjectEnvironments,
 } from '@openchoreo/backstage-plugin-react';
+import { EnvironmentsStatusNotice } from '../common';
 import { RCAReport } from './RCAReport';
 import { EntityLinkContext } from './RCAReport/EntityLinkContext';
 
@@ -29,7 +30,7 @@ const RCAListContent = () => {
   const {
     environments,
     loading: environmentsLoading,
-    error: environmentsError,
+    status: environmentsStatus,
   } = useProjectEnvironments(projectName, namespace);
   const { filters, updateFilters } = useUrlFilters({ environments });
 
@@ -63,9 +64,19 @@ const RCAListContent = () => {
     refresh();
   }, [refresh]);
 
-  if (environmentsError) {
-    // TODO: Add a toast notification here
-    return <></>;
+  if (environmentsLoading) {
+    return <Progress />;
+  }
+
+  if (environmentsStatus !== 'ok') {
+    return (
+      <Box>
+        <EnvironmentsStatusNotice
+          status={environmentsStatus}
+          feature="RCA reports"
+        />
+      </Box>
+    );
   }
 
   const renderError = (error: string) => {

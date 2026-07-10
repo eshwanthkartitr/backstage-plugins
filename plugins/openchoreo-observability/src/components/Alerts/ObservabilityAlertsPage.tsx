@@ -17,6 +17,7 @@ import {
   pickRangeForAge,
   useProjectEnvironments,
 } from '@openchoreo/backstage-plugin-react';
+import { EnvironmentsStatusNotice } from '../common';
 import { useRuntimeLogsStyles } from '../RuntimeLogs/styles';
 import type { AlertSummary } from '../../types';
 
@@ -29,7 +30,7 @@ const ObservabilityAlertsContent = () => {
   const {
     environments,
     loading: environmentsLoading,
-    error: environmentsError,
+    status: environmentsStatus,
   } = useProjectEnvironments(project, namespace);
 
   const { filters, updateFilters } = useUrlFiltersForAlerts({
@@ -213,8 +214,19 @@ const ObservabilityAlertsContent = () => {
     );
   };
 
-  if (environmentsError) {
-    return <Box>{renderError(environmentsError)}</Box>;
+  if (environmentsLoading) {
+    return <Progress />;
+  }
+
+  if (environmentsStatus !== 'ok') {
+    return (
+      <Box>
+        <EnvironmentsStatusNotice
+          status={environmentsStatus}
+          feature="alerts"
+        />
+      </Box>
+    );
   }
 
   return (
@@ -228,17 +240,6 @@ const ObservabilityAlertsContent = () => {
       />
 
       {alertsError && renderError(alertsError)}
-
-      {!filters.environment &&
-        !environmentsLoading &&
-        environments.length === 0 && (
-          <Alert severity="info" className={classes.errorContainer}>
-            <Typography variant="body1">
-              No environments found. Make sure your component is properly
-              configured.
-            </Typography>
-          </Alert>
-        )}
 
       {filters.environment && (
         <>

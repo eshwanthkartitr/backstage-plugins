@@ -21,6 +21,7 @@ import {
   calculateTimeRange,
   useProjectEnvironments,
 } from '@openchoreo/backstage-plugin-react';
+import { EnvironmentsStatusNotice } from '../common';
 
 const ObservabilityTracesContent = () => {
   const { entity } = useEntity();
@@ -31,7 +32,7 @@ const ObservabilityTracesContent = () => {
   const {
     environments,
     loading: environmentsLoading,
-    error: environmentsError,
+    status: environmentsStatus,
   } = useProjectEnvironments(projectName, namespace);
   const {
     components,
@@ -110,8 +111,19 @@ const ObservabilityTracesContent = () => {
     return <></>;
   }
 
-  if (environmentsError) {
-    return <></>;
+  if (environmentsLoading) {
+    return <Progress />;
+  }
+
+  if (environmentsStatus !== 'ok') {
+    return (
+      <Box>
+        <EnvironmentsStatusNotice
+          status={environmentsStatus}
+          feature="traces"
+        />
+      </Box>
+    );
   }
 
   const renderError = (error: string) => {

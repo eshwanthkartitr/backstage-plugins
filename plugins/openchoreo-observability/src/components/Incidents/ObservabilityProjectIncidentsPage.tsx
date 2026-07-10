@@ -17,6 +17,7 @@ import {
   useIncidentsPermission,
   useProjectEnvironments,
 } from '@openchoreo/backstage-plugin-react';
+import { EnvironmentsStatusNotice } from '../common';
 import { useRuntimeLogsStyles } from '../RuntimeLogs/styles';
 import type { IncidentSummary } from '../../types';
 
@@ -31,7 +32,7 @@ const ObservabilityProjectIncidentsContent = () => {
   const {
     environments,
     loading: environmentsLoading,
-    error: environmentsError,
+    status: environmentsStatus,
   } = useProjectEnvironments(projectName, namespace);
 
   const {
@@ -253,8 +254,19 @@ const ObservabilityProjectIncidentsContent = () => {
     );
   };
 
-  if (environmentsError) {
-    return <Box>{renderError(environmentsError)}</Box>;
+  if (environmentsLoading) {
+    return <Progress />;
+  }
+
+  if (environmentsStatus !== 'ok') {
+    return (
+      <Box>
+        <EnvironmentsStatusNotice
+          status={environmentsStatus}
+          feature="incidents"
+        />
+      </Box>
+    );
   }
 
   if (componentsError) {
@@ -274,16 +286,6 @@ const ObservabilityProjectIncidentsContent = () => {
       />
 
       {incidentsError && renderError(incidentsError)}
-
-      {!filters.environment &&
-        !environmentsLoading &&
-        environments.length === 0 && (
-          <Alert severity="info" className={classes.errorContainer}>
-            <Typography variant="body1">
-              No environments found for this project.
-            </Typography>
-          </Alert>
-        )}
 
       {filters.environment && (
         <>

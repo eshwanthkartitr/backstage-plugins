@@ -13,6 +13,7 @@ import {
   useGetNamespaceAndProjectByEntity,
   useWirelogsEnvironments,
 } from '../../hooks';
+import { EnvironmentsStatusNotice } from '../common';
 import { WirelogsFilter } from './WirelogsFilter';
 import { WirelogsStats } from './WirelogsStats';
 import { WirelogsTable, matchesSearch } from './WirelogsTable';
@@ -33,7 +34,7 @@ const ObservabilityWirelogsContent = () => {
   const {
     environments,
     loading: environmentsLoading,
-    error: environmentsError,
+    status: environmentsStatus,
   } = useWirelogsEnvironments(project, namespace);
 
   const [filters, setFilters] = useState<WirelogsFilters>({
@@ -149,12 +150,17 @@ const ObservabilityWirelogsContent = () => {
     URL.revokeObjectURL(url);
   };
 
-  if (environmentsError) {
+  if (environmentsLoading) {
+    return <Progress />;
+  }
+
+  if (environmentsStatus !== 'ok') {
     return (
       <Box>
-        <Alert severity="error" className={classes.errorContainer}>
-          <Typography variant="body1">{environmentsError}</Typography>
-        </Alert>
+        <EnvironmentsStatusNotice
+          status={environmentsStatus}
+          feature="wire logs"
+        />
       </Box>
     );
   }
@@ -221,16 +227,6 @@ const ObservabilityWirelogsContent = () => {
           {stream.error}
         </Alert>
       )}
-
-      {!filters.environment &&
-        !environmentsLoading &&
-        environments.length === 0 && (
-          <Alert severity="info" className={classes.errorContainer}>
-            <Typography variant="body1">
-              No environments found. Make sure your component is deployed.
-            </Typography>
-          </Alert>
-        )}
 
       {filters.environment && !envPermissionLoading && !canViewForEnv && (
         <ForbiddenState
