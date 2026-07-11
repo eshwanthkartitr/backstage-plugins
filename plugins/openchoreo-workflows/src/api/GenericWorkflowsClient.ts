@@ -166,4 +166,17 @@ export class GenericWorkflowsClient implements GenericWorkflowsClientApi {
       { params },
     );
   }
+
+  async deleteWorkflowRun(
+    namespaceName: string,
+    runName: string,
+  ): Promise<void> {
+    return this.apiFetch<void>(
+      `/workflow-runs/${encodeURIComponent(runName)}`,
+      {
+        method: 'DELETE',
+        params: { namespaceName },
+      },
+    );
+  }
 }

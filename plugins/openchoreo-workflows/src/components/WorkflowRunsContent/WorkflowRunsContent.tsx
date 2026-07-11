@@ -32,6 +32,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import RefreshIcon from '@material-ui/icons/Refresh';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import CloseIcon from '@material-ui/icons/Close';
+import DeleteIcon from '@material-ui/icons/Delete';
 import DescriptionOutlinedIcon from '@material-ui/icons/DescriptionOutlined';
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 import EventNoteOutlinedIcon from '@material-ui/icons/EventNoteOutlined';
@@ -728,6 +729,7 @@ export const WorkflowRunsContent = () => {
   const { entity } = useEntity();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showTriggerForm, setShowTriggerForm] = useState(false);
+  const client = useApi(genericWorkflowsClientApiRef);
 
   const workflowName = entity.metadata.name;
   const workflowKind: 'Workflow' | 'ClusterWorkflow' =
@@ -915,6 +917,29 @@ export const WorkflowRunsContent = () => {
         <Table
           data={runs}
           columns={columns}
+          actions={[
+            {
+              icon: () => <DeleteIcon />,
+              tooltip: 'Delete Run',
+              onClick: async (_event, rowData) => {
+                const run = rowData as WorkflowRun;
+                if (
+                  // eslint-disable-next-line no-alert
+                  window.confirm(
+                    `Are you sure you want to delete workflow run "${run.name}"?`,
+                  )
+                ) {
+                  try {
+                    await client.deleteWorkflowRun(runsNamespace, run.name);
+                    refetch();
+                  } catch (err) {
+                    // eslint-disable-next-line no-alert
+                    window.alert(`Failed to delete run: ${err}`);
+                  }
+                }
+              },
+            },
+          ]}
           options={{
             search: true,
             paging: true,

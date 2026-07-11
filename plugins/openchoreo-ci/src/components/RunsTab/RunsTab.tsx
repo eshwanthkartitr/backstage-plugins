@@ -2,7 +2,10 @@ import { Table, TableColumn } from '@backstage/core-components';
 import { Typography, Box, IconButton, Tooltip } from '@material-ui/core';
 import Refresh from '@material-ui/icons/Refresh';
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
+import DeleteIcon from '@material-ui/icons/Delete';
+import { useApi } from '@backstage/core-plugin-api';
 import { BuildStatusChip } from '../BuildStatusChip';
+import { openChoreoCiClientApiRef } from '../../api/OpenChoreoCiClientApi';
 import type { ModelsBuild } from '@openchoreo/backstage-plugin-common';
 import { formatRelativeTime } from '@openchoreo/backstage-plugin-react';
 import { extractGitFieldValues } from '../../utils/schemaExtensions';
@@ -30,6 +33,7 @@ export const RunsTab = ({
   retentionTtl,
 }: RunsTabProps) => {
   const classes = useStyles();
+  const client = useApi(openChoreoCiClientApiRef);
 
   const columns: TableColumn[] = [
     {
@@ -122,6 +126,34 @@ export const RunsTab = ({
           sorting: true,
         }}
         columns={columns}
+        actions={[
+          {
+            icon: () => <DeleteIcon />,
+            tooltip: 'Delete Run',
+            onClick: async (_event, rowData) => {
+              const run = rowData as ModelsBuild;
+              if (
+                // eslint-disable-next-line no-alert
+                window.confirm(
+                  `Are you sure you want to delete workflow run "${run.name}"?`,
+                )
+              ) {
+                try {
+                  await client.deleteWorkflowRun(
+                    run.namespaceName!,
+                    run.projectName!,
+                    run.componentName!,
+                    run.name!,
+                  );
+                  onRefresh();
+                } catch (err) {
+                  // eslint-disable-next-line no-alert
+                  window.alert(`Failed to delete run: ${err}`);
+                }
+              }
+            },
+          },
+        ]}
         data={sortedBuilds}
         onRowClick={(_, rowData) => {
           onRowClick(rowData as ModelsBuild);
