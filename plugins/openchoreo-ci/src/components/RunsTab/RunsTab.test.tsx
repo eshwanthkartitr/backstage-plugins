@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RunsTab } from './RunsTab';
 import type { ModelsBuild } from '@openchoreo/backstage-plugin-common';
+import { TestApiProvider } from '@backstage/test-utils';
+import { openChoreoCiClientApiRef } from '../../api/OpenChoreoCiClientApi';
 
 // ---- Mocks ----
 
@@ -78,6 +80,10 @@ const builds: ModelsBuild[] = [
   },
 ];
 
+const mockCiClient = {
+  deleteWorkflowRun: jest.fn(),
+};
+
 function renderTab(
   overrides: Partial<React.ComponentProps<typeof RunsTab>> = {},
 ) {
@@ -90,7 +96,11 @@ function renderTab(
   };
 
   return {
-    ...render(<RunsTab {...defaultProps} {...overrides} />),
+    ...render(
+      <TestApiProvider apis={[[openChoreoCiClientApiRef, mockCiClient]]}>
+        <RunsTab {...defaultProps} {...overrides} />
+      </TestApiProvider>
+    ),
     props: { ...defaultProps, ...overrides },
   };
 }
