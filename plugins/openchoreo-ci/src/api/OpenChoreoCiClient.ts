@@ -92,6 +92,10 @@ export class OpenChoreoCiClient implements OpenChoreoCiClientApi {
       throw new Error(`API request failed (${response.status}): ${errorText}`);
     }
 
+    if (response.status === 204) {
+      return undefined as unknown as T;
+    }
+
     return response.json();
   }
 

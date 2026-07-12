@@ -778,6 +778,14 @@ export class WorkflowService {
     );
 
     try {
+      await this.getWorkflowRun(
+        namespaceName,
+        projectName,
+        componentName,
+        runName,
+        token,
+      );
+
       const client = createOpenChoreoApiClient({
         baseUrl: this.baseUrl,
         token,
