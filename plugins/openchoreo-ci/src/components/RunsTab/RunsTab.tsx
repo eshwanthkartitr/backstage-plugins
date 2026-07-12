@@ -138,12 +138,20 @@ export const RunsTab = ({
                   `Are you sure you want to delete workflow run "${run.name}"?`,
                 )
               ) {
+                if (
+                  !run.namespaceName ||
+                  !run.projectName ||
+                  !run.componentName ||
+                  !run.name
+                ) {
+                  return;
+                }
                 try {
                   await client.deleteWorkflowRun(
-                    run.namespaceName!,
-                    run.projectName!,
-                    run.componentName!,
-                    run.name!,
+                    run.namespaceName,
+                    run.projectName,
+                    run.componentName,
+                    run.name,
                   );
                   onRefresh();
                 } catch (err) {

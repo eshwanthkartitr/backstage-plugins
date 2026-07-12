@@ -26,7 +26,7 @@ jest.mock('../../hooks', () => ({
 }));
 
 jest.mock('@backstage/core-components', () => ({
-  Table: ({ title, data, columns, emptyContent, onRowClick }: any) => (
+  Table: ({ title, data, columns, emptyContent, onRowClick, actions }: any) => (
     <div data-testid="table">
       <div data-testid="table-title">{title}</div>
       {data.length === 0 ? (
@@ -47,6 +47,19 @@ jest.mock('@backstage/core-components', () => ({
                   </span>
                 ) : null,
               )}
+              {actions?.map((action: any, k: number) => (
+                <button
+                  key={`action-${k}`}
+                  title={action.tooltip}
+                  data-testid={`action-${action.tooltip}-${i}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    action.onClick(e, row);
+                  }}
+                >
+                  {action.tooltip}
+                </button>
+              ))}
             </div>
           ))}
         </div>
@@ -189,5 +202,25 @@ describe('RunsTab', () => {
     await user.click(screen.getByTitle('Refresh builds'));
 
     expect(onRefresh).toHaveBeenCalled();
+  });
+  it('calls deleteWorkflowRun and onRefresh when delete action is confirmed', async () => {
+    const user = userEvent.setup();
+    const onRefresh = jest.fn();
+    const confirmSpy = jest.spyOn(window, 'confirm').mockImplementation(() => true);
+
+    renderTab({ onRefresh });
+
+    await user.click(screen.getByTestId('action-Delete Run-0'));
+
+    expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete workflow run "build-2"?');
+    expect(mockCiClient.deleteWorkflowRun).toHaveBeenCalledWith(
+      'dev-ns',
+      'my-project',
+      'api-service',
+      'build-2'
+    );
+    expect(onRefresh).toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
   });
 });
