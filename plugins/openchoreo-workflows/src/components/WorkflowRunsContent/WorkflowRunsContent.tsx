@@ -8,7 +8,7 @@ import {
   InfoCard,
   StructuredMetadataTable,
 } from '@backstage/core-components';
-import { useApi } from '@backstage/core-plugin-api';
+import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import {
   Alert,
@@ -27,6 +27,11 @@ import {
   Paper,
   Button,
   Collapse,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import RefreshIcon from '@material-ui/icons/Refresh';
@@ -730,6 +735,12 @@ export const WorkflowRunsContent = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showTriggerForm, setShowTriggerForm] = useState(false);
   const client = useApi(genericWorkflowsClientApiRef);
+  const alertApi = useApi(alertApiRef);
+
+  const [deleteTargetRun, setDeleteTargetRun] = useState<WorkflowRun | null>(
+    null,
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const workflowName = entity.metadata.name;
   const workflowKind: 'Workflow' | 'ClusterWorkflow' =
@@ -771,6 +782,24 @@ export const WorkflowRunsContent = () => {
     error,
     refetch,
   } = useWorkflowRuns(workflowName, runsNamespace);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTargetRun) return;
+
+    setIsDeleting(true);
+    try {
+      await client.deleteWorkflowRun(runsNamespace, deleteTargetRun.name);
+      refetch();
+    } catch (err) {
+      alertApi.post({
+        message: `Failed to delete run: ${err}`,
+        severity: 'error',
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteTargetRun(null);
+    }
+  };
 
   const handleRunClick = (runName: string) => {
     setSearchParams({ run: runName });
@@ -922,21 +951,7 @@ export const WorkflowRunsContent = () => {
               icon: () => <DeleteIcon />,
               tooltip: 'Delete Run',
               onClick: async (_event, rowData) => {
-                const run = rowData as WorkflowRun;
-                if (
-                  // eslint-disable-next-line no-alert
-                  window.confirm(
-                    `Are you sure you want to delete workflow run "${run.name}"?`,
-                  )
-                ) {
-                  try {
-                    await client.deleteWorkflowRun(runsNamespace, run.name);
-                    refetch();
-                  } catch (err) {
-                    // eslint-disable-next-line no-alert
-                    window.alert(`Failed to delete run: ${err}`);
-                  }
-                }
+                setDeleteTargetRun(rowData as WorkflowRun);
               },
             },
           ]}
@@ -953,6 +968,34 @@ export const WorkflowRunsContent = () => {
           }}
         />
       )}
+
+      <Dialog
+        open={Boolean(deleteTargetRun)}
+        onClose={() => setDeleteTargetRun(null)}
+      >
+        <DialogTitle>Delete Workflow Run</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete workflow run "{deleteTargetRun?.name}"?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setDeleteTargetRun(null)}
+            color="primary"
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="secondary"
+            disabled={isDeleting}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Content>
   );
 };
