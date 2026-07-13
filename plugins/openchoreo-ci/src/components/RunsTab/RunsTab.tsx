@@ -1,9 +1,21 @@
+import { useState } from 'react';
 import { Table, TableColumn } from '@backstage/core-components';
-import { Typography, Box, IconButton, Tooltip } from '@material-ui/core';
+import {
+  Typography,
+  Box,
+  IconButton,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
+} from '@material-ui/core';
 import Refresh from '@material-ui/icons/Refresh';
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 import DeleteIcon from '@material-ui/icons/Delete';
-import { useApi } from '@backstage/core-plugin-api';
+import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { BuildStatusChip } from '../BuildStatusChip';
 import { openChoreoCiClientApiRef } from '../../api/OpenChoreoCiClientApi';
 import type { ModelsBuild } from '@openchoreo/backstage-plugin-common';
@@ -34,6 +46,43 @@ export const RunsTab = ({
 }: RunsTabProps) => {
   const classes = useStyles();
   const client = useApi(openChoreoCiClientApiRef);
+  const alertApi = useApi(alertApiRef);
+
+  const [deleteTarget, setDeleteTarget] = useState<ModelsBuild | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+
+    if (
+      !deleteTarget.namespaceName ||
+      !deleteTarget.projectName ||
+      !deleteTarget.componentName ||
+      !deleteTarget.name
+    ) {
+      setDeleteTarget(null);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await client.deleteWorkflowRun(
+        deleteTarget.namespaceName,
+        deleteTarget.projectName,
+        deleteTarget.componentName,
+        deleteTarget.name,
+      );
+      onRefresh();
+    } catch (err) {
+      alertApi.post({
+        message: `Failed to delete run: ${err}`,
+        severity: 'error',
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
 
   const columns: TableColumn[] = [
     {
@@ -131,34 +180,7 @@ export const RunsTab = ({
             icon: () => <DeleteIcon />,
             tooltip: 'Delete Run',
             onClick: async (_event, rowData) => {
-              const run = rowData as ModelsBuild;
-              if (
-                // eslint-disable-next-line no-alert
-                window.confirm(
-                  `Are you sure you want to delete workflow run "${run.name}"?`,
-                )
-              ) {
-                if (
-                  !run.namespaceName ||
-                  !run.projectName ||
-                  !run.componentName ||
-                  !run.name
-                ) {
-                  return;
-                }
-                try {
-                  await client.deleteWorkflowRun(
-                    run.namespaceName,
-                    run.projectName,
-                    run.componentName,
-                    run.name,
-                  );
-                  onRefresh();
-                } catch (err) {
-                  // eslint-disable-next-line no-alert
-                  window.alert(`Failed to delete run: ${err}`);
-                }
-              }
+              setDeleteTarget(rowData as ModelsBuild);
             },
           },
         ]}
@@ -194,6 +216,35 @@ export const RunsTab = ({
           </Box>
         }
       />
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+      >
+        <DialogTitle>Delete Workflow Run</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete workflow run "{deleteTarget?.name}"?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setDeleteTarget(null)}
+            color="primary"
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="secondary"
+            disabled={isDeleting}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
+

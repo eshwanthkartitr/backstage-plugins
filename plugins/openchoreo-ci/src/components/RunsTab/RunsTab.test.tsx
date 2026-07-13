@@ -97,6 +97,12 @@ const mockCiClient = {
   deleteWorkflowRun: jest.fn(),
 };
 
+import { alertApiRef } from '@backstage/core-plugin-api';
+
+const mockAlertApi = {
+  post: jest.fn(),
+};
+
 function renderTab(
   overrides: Partial<React.ComponentProps<typeof RunsTab>> = {},
 ) {
@@ -110,7 +116,12 @@ function renderTab(
 
   return {
     ...render(
-      <TestApiProvider apis={[[openChoreoCiClientApiRef, mockCiClient]]}>
+      <TestApiProvider
+        apis={[
+          [openChoreoCiClientApiRef, mockCiClient],
+          [alertApiRef, mockAlertApi],
+        ]}
+      >
         <RunsTab {...defaultProps} {...overrides} />
       </TestApiProvider>
     ),
@@ -206,13 +217,18 @@ describe('RunsTab', () => {
   it('calls deleteWorkflowRun and onRefresh when delete action is confirmed', async () => {
     const user = userEvent.setup();
     const onRefresh = jest.fn();
-    const confirmSpy = jest.spyOn(window, 'confirm').mockImplementation(() => true);
+    mockCiClient.deleteWorkflowRun.mockResolvedValue(undefined);
 
     renderTab({ onRefresh });
 
+    // Open dialog
     await user.click(screen.getByTestId('action-Delete Run-0'));
 
-    expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete workflow run "build-2"?');
+    expect(screen.getByText('Are you sure you want to delete workflow run "build-2"?')).toBeInTheDocument();
+
+    // Click confirm in the dialog
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
     expect(mockCiClient.deleteWorkflowRun).toHaveBeenCalledWith(
       'dev-ns',
       'my-project',
@@ -220,7 +236,22 @@ describe('RunsTab', () => {
       'build-2'
     );
     expect(onRefresh).toHaveBeenCalled();
+  });
 
-    confirmSpy.mockRestore();
+  it('shows error alert when delete action fails', async () => {
+    const user = userEvent.setup();
+    const onRefresh = jest.fn();
+    mockCiClient.deleteWorkflowRun.mockRejectedValue(new Error('Network error'));
+
+    renderTab({ onRefresh });
+
+    await user.click(screen.getByTestId('action-Delete Run-0'));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(mockAlertApi.post).toHaveBeenCalledWith({
+      message: 'Failed to delete run: Error: Network error',
+      severity: 'error',
+    });
+    expect(onRefresh).not.toHaveBeenCalled();
   });
 });
