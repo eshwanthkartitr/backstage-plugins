@@ -4,6 +4,7 @@ import { EmptyState, Progress, WarningIcon } from '@backstage/core-components';
 import { Alert } from '@material-ui/lab';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { CHOREO_ANNOTATIONS } from '@openchoreo/backstage-plugin-common';
+import { RefreshOverlay } from '@openchoreo/backstage-design-system';
 import { AlertsFilter } from './AlertsFilter';
 import { AlertsTable } from './AlertsTable';
 import { AlertsActions } from './AlertsActions';
@@ -49,8 +50,8 @@ const ObservabilityAlertsContent = () => {
   const {
     alerts,
     loading: alertsLoading,
+    isRefetching,
     error: alertsError,
-    fetchAlerts,
     refresh,
   } = useComponentAlerts(entity, namespace || '', project || '', {
     environment: filters.environment,
@@ -90,7 +91,8 @@ const ObservabilityAlertsContent = () => {
       componentName &&
       filtersChanged
     ) {
-      fetchAlerts(true);
+      // The alerts query keys on these filters, so it refetches on its own when
+      // they change — this effect only stamps the "last updated" time.
       setLastUpdated(new Date());
       previousFiltersRef.current = currentFilters;
     }
@@ -100,7 +102,6 @@ const ObservabilityAlertsContent = () => {
     filters.customStartTime,
     filters.customEndTime,
     filters.sortOrder,
-    fetchAlerts,
     selectedEnvironment,
     namespace,
     project,
@@ -230,7 +231,8 @@ const ObservabilityAlertsContent = () => {
   }
 
   return (
-    <Box>
+    <Box position="relative">
+      <RefreshOverlay active={isRefetching} label="Refreshing alerts" />
       <AlertsFilter
         filters={filters}
         onFiltersChange={handleFiltersChange}

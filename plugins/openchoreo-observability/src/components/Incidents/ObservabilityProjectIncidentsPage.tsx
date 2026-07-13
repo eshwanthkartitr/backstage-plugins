@@ -4,6 +4,7 @@ import { EmptyState, Progress, WarningIcon } from '@backstage/core-components';
 import { Alert } from '@material-ui/lab';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { CHOREO_ANNOTATIONS } from '@openchoreo/backstage-plugin-common';
+import { RefreshOverlay } from '@openchoreo/backstage-design-system';
 import { IncidentsFilter } from './IncidentsFilter';
 import { IncidentsTable } from './IncidentsTable';
 import { IncidentsActions } from './IncidentsActions';
@@ -60,8 +61,8 @@ const ObservabilityProjectIncidentsContent = () => {
   const {
     incidents,
     loading: incidentsLoading,
+    isRefetching,
     error: incidentsError,
-    fetchIncidents,
     refresh,
   } = useProjectIncidents(entity, {
     environment: filters.environment,
@@ -102,7 +103,8 @@ const ObservabilityProjectIncidentsContent = () => {
       projectName &&
       filtersChanged
     ) {
-      fetchIncidents(true);
+      // The incidents query keys on these filters, so it refetches on its own
+      // when they change — this effect only stamps the "last updated" time.
       setLastUpdated(new Date());
       previousFiltersRef.current = currentFilters;
     }
@@ -113,7 +115,6 @@ const ObservabilityProjectIncidentsContent = () => {
     filters.customEndTime,
     filters.components,
     filters.sortOrder,
-    fetchIncidents,
     selectedEnvironment,
     namespace,
     projectName,
@@ -274,7 +275,8 @@ const ObservabilityProjectIncidentsContent = () => {
   }
 
   return (
-    <Box>
+    <Box position="relative">
+      <RefreshOverlay active={isRefetching} label="Refreshing incidents" />
       <IncidentsFilter
         filters={filters}
         onFiltersChange={handleFiltersChange}
