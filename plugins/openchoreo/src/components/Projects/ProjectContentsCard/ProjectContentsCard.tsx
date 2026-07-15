@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Table } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +29,7 @@ import { shouldNavigateOnRowClick } from '../../../utils/shouldNavigateOnRowClic
 import {
   MultiSelectFilter,
   RefreshOverlay,
+  Skeleton,
   type MultiSelectGroup,
 } from '@openchoreo/backstage-design-system';
 import { CreateProjectContentButton } from './CreateProjectContentButton';
@@ -197,15 +198,41 @@ export const ProjectContentsCard = () => {
   // The project has no contents at all (vs. filters excluding everything).
   const isEmptyProject = !facets.loading && facets.counts.all === 0;
 
+  // Track whether the card has ever finished a load. Using `items.length === 0`
+  // to detect the initial load misfires when a filter yields 0 rows and is then
+  // changed — the refetch (loading + empty items) would look like a first load
+  // and unmount the header controls (incl. the search field being typed in).
+  const hasLoadedOnce = useRef(false);
+  useEffect(() => {
+    if (!page.loading && !facets.loading) {
+      hasLoadedOnce.current = true;
+    }
+  }, [page.loading, facets.loading]);
+
+  // First load — we don't yet know if this resolves to a table or the empty
+  // state, so show a neutral card skeleton rather than a table-shaped one.
+  const initialLoading =
+    !isEmptyProject &&
+    !hasLoadedOnce.current &&
+    (facets.loading || page.loading);
+
+  const showTable = !isEmptyProject && !initialLoading;
+
   return (
     <Box className={classes.cardWrapper} position="relative">
       <RefreshOverlay active={envsRefetching} label="Refreshing environments" />
       <Box className={classes.header}>
         <Box className={classes.titleGroup}>
-          <Typography variant="h5">Project Contents</Typography>
-          <span className={classes.countBadge}>{facets.counts.all}</span>
+          {initialLoading ? (
+            <Skeleton variant="text" width={150} height={28} />
+          ) : (
+            <>
+              <Typography variant="h5">Project Contents</Typography>
+              <span className={classes.countBadge}>{facets.counts.all}</span>
+            </>
+          )}
         </Box>
-        {!isEmptyProject && (
+        {showTable && (
           <Box className={classes.headerActions}>
             <MultiSelectFilter
               label="Kind"
@@ -253,18 +280,25 @@ export const ProjectContentsCard = () => {
         )}
       </Box>
 
-      {isEmptyProject ? (
-        <ProjectContentsEmptyState entity={entity} />
-      ) : (
+      {isEmptyProject && <ProjectContentsEmptyState entity={entity} />}
+
+      {initialLoading && (
+        <Box className={classes.skeletonBody}>
+          <Skeleton variant="rect" width="100%" height={240} />
+        </Box>
+      )}
+
+      {showTable && (
         <>
           <Box className={classes.tableScroll}>
             <Table<ProjectContentItem>
               columns={columns}
               data={page.items}
-              isLoading={tableLoading}
+              isLoading={false}
               onOrderChange={handleOrderChange}
               onRowClick={(event, rowData) => {
                 if (
+                  tableLoading ||
                   !rowData ||
                   !shouldNavigateOnRowClick(event) ||
                   isMarkedForDeletion(rowData.entity)

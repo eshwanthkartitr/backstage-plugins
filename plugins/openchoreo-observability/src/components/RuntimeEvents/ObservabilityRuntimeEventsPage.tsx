@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { PageLoader } from '@openchoreo/backstage-design-system';
 import { Box, Typography, Button } from '@material-ui/core';
-import { Progress } from '@backstage/core-components';
+
 import { Alert } from '@material-ui/lab';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { CHOREO_ANNOTATIONS } from '@openchoreo/backstage-plugin-common';
@@ -180,7 +181,7 @@ const ObservabilityRuntimeEventsContent = () => {
   };
 
   if (environmentsLoading) {
-    return <Progress />;
+    return <PageLoader />;
   }
 
   if (environmentsStatus !== 'ok') {
@@ -258,7 +259,7 @@ export const ObservabilityRuntimeEventsPage = () => {
   } = useEventsPermission();
 
   if (permissionLoading) {
-    return <Progress />;
+    return <PageLoader />;
   }
 
   if (!canViewEvents) {

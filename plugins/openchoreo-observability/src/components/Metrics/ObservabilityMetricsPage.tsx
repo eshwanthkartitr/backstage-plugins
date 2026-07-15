@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageLoader } from '@openchoreo/backstage-design-system';
 import {
   Grid,
   Card,
@@ -9,7 +10,7 @@ import {
   Typography,
   Box,
 } from '@material-ui/core';
-import { Progress } from '@backstage/core-components';
+
 import { MetricsFilters } from './MetricsFilters';
 import { MetricGraphByComponent } from './MetricGraphByComponent';
 import { MetricsActions } from './MetricsActions';
@@ -141,7 +142,10 @@ const ObservabilityMetricsContent = () => {
   return (
     <Box position="relative">
       <RefreshOverlay active={isRefetching} label="Refreshing metrics" />
-      {(isLoading || metricsLoading) && <Progress />}
+      {/* Full-page loader only on the true first load; while metrics refetch
+          (metricsLoading) the filters + grid stay put and the RefreshOverlay
+          signals activity, so we don't push content down with a 60vh spinner. */}
+      {isLoading && <PageLoader />}
 
       {!isLoading && (
         <>
@@ -232,7 +236,7 @@ export const ObservabilityMetricsPage = () => {
   } = useMetricsPermission();
 
   if (permissionLoading) {
-    return <Progress />;
+    return <PageLoader />;
   }
 
   if (!canViewMetrics) {

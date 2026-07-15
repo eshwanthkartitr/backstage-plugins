@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { PageLoader } from '@openchoreo/backstage-design-system';
 import { Box, Typography, Button, Snackbar } from '@material-ui/core';
-import { EmptyState, Progress, WarningIcon } from '@backstage/core-components';
+import { EmptyState, WarningIcon } from '@backstage/core-components';
 import { Alert } from '@material-ui/lab';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { CHOREO_ANNOTATIONS } from '@openchoreo/backstage-plugin-common';
@@ -256,7 +257,7 @@ const ObservabilityProjectIncidentsContent = () => {
   };
 
   if (environmentsLoading) {
-    return <Progress />;
+    return <PageLoader />;
   }
 
   if (environmentsStatus !== 'ok') {
@@ -338,7 +339,7 @@ export const ObservabilityProjectIncidentsPage = () => {
     deniedTooltip,
   } = useIncidentsPermission();
 
-  if (permissionLoading) return <Progress />;
+  if (permissionLoading) return <PageLoader />;
 
   if (!canViewIncidents) {
     return (
