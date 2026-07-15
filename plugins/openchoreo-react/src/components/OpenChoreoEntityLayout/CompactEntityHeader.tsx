@@ -31,7 +31,11 @@ import {
   type EntityRelation,
 } from '@backstage/catalog-model';
 import { useNavigate } from 'react-router-dom';
-import { lightTokens, darkTokens } from '@openchoreo/backstage-design-system';
+import {
+  lightTokens,
+  darkTokens,
+  Skeleton,
+} from '@openchoreo/backstage-design-system';
 
 export interface CompactEntityHeaderProps {
   entity: Entity;
@@ -43,6 +47,13 @@ export interface CompactEntityHeaderProps {
   parentEntity?: EntityRelation | null;
   ancestorEntity?: EntityRelation | null;
   contextMenu?: ReactNode;
+  /**
+   * True while navigating to another entity. When set, the header keeps its
+   * chrome mounted but renders the entity-derived bits (type chip, favorite,
+   * parent breadcrumbs) as skeletons — the current entity's identity still
+   * comes from the URL-derived `kind`/`entityName`, so it updates immediately.
+   */
+  loading?: boolean;
 }
 
 function buildCatalogEntityPath(entityRef: string): string | null {
@@ -351,6 +362,7 @@ export function CompactEntityHeader(props: CompactEntityHeaderProps) {
     parentEntity,
     ancestorEntity,
     contextMenu,
+    loading = false,
   } = props;
   const classes = useStyles();
   const navigate = useNavigate();
@@ -371,6 +383,23 @@ export function CompactEntityHeader(props: CompactEntityHeaderProps) {
 
   const kindLabel = kindDisplayNames?.[kind.toLowerCase()] ?? kind;
 
+  // Expected number of parent breadcrumb levels for the URL kind, used to size
+  // the skeleton trail while loading so it matches the real trail's shape:
+  // Component/Resource/API sit under Namespace > Project (2), Project under
+  // Namespace (1), Namespace and standalone platform resources have none (0).
+  const loadingAncestorCount = (() => {
+    switch (kind.toLowerCase()) {
+      case 'component':
+      case 'resource':
+      case 'api':
+        return 2;
+      case 'system':
+        return 1;
+      default:
+        return 0;
+    }
+  })();
+
   const entityType =
     entity.spec && 'type' in entity.spec
       ? (entity.spec as { type: string }).type
@@ -382,6 +411,8 @@ export function CompactEntityHeader(props: CompactEntityHeaderProps) {
     normalizedRef: string | null;
     kind: string;
     namespace: string;
+    /** Raw entity name (metadata.name) — used for catalog filter params. */
+    name: string;
     value: string;
     displayType: string;
     path: string | null;
@@ -425,6 +456,7 @@ export function CompactEntityHeader(props: CompactEntityHeaderProps) {
         normalizedRef: normalizeEntityRef(entityRef),
         kind: parsed.kind,
         namespace: parsed.namespace,
+        name: parsed.name,
         value: options?.valueOverride ?? parsed.name,
         displayType:
           kindDisplayNames?.[parsed.kind.toLowerCase()] ??
@@ -585,7 +617,11 @@ export function CompactEntityHeader(props: CompactEntityHeaderProps) {
 
       for (let i = 0; i < targetNodeIndex; i += 1) {
         const ancestor = breadcrumbNodes[i];
-        const ancestorName = ancestor.value;
+        // Use the raw entity name (not the display value/title) for catalog
+        // filter params: the namespace filter matches `metadata.namespace` and
+        // the project/component filters match the `openchoreo.io/*` annotation
+        // values — all of which are entity names, never display titles.
+        const ancestorName = ancestor.name;
         const ancestorKind = ancestor.kind.toLowerCase();
 
         if (ancestorKind === 'domain') {
@@ -667,10 +703,18 @@ export function CompactEntityHeader(props: CompactEntityHeaderProps) {
     <header className={classes.header}>
       <Box className={classes.topRow}>
         <Typography variant="h5" className={classes.title}>
-          <EntityDisplayName entityRef={entity} hideIcon />
+          {loading ? (
+            entityName
+          ) : (
+            <EntityDisplayName entityRef={entity} hideIcon />
+          )}
         </Typography>
         <Box component="span" className={classes.favorite}>
-          <FavoriteEntity entity={entity} />
+          {loading ? (
+            <Skeleton variant="circle" width={20} height={20} />
+          ) : (
+            <FavoriteEntity entity={entity} />
+          )}
         </Box>
         <Chip
           label={kindLabel}
@@ -678,18 +722,52 @@ export function CompactEntityHeader(props: CompactEntityHeaderProps) {
           size="small"
           className={`${classes.chip} ${classes.kindChip}`}
         />
-        {entityType && (
-          <Chip
-            label={entityType}
-            variant="outlined"
-            size="small"
-            className={classes.chip}
+        {loading ? (
+          <Skeleton
+            variant="rect"
+            width={72}
+            height={24}
+            style={{ borderRadius: 12 }}
           />
+        ) : (
+          entityType && (
+            <Chip
+              label={entityType}
+              variant="outlined"
+              size="small"
+              className={classes.chip}
+            />
+          )
         )}
         <Box flexGrow={1} />
         {contextMenu}
       </Box>
-      {breadcrumbNodes.length > 0 && (
+      {loading && (
+        <MaterialBreadcrumbs separator="" className={classes.breadcrumbs}>
+          {Array.from({ length: loadingAncestorCount }).map((_, index) => (
+            <Box
+              key={`crumb-skeleton-${index}`}
+              component="span"
+              className={classes.breadcrumbLevelBox}
+            >
+              <Skeleton variant="text" width={90} height={18} />
+            </Box>
+          ))}
+          {/* Current level: identity is known from the URL, so render it solid. */}
+          <Box component="span" className={classes.breadcrumbLevelBox}>
+            <Typography
+              component="span"
+              className={classes.breadcrumbKindDivider}
+            >
+              {`${toPluralLabel(kindLabel).toLowerCase()} / `}
+            </Typography>
+            <Typography component="span" className={classes.breadcrumbNameLink}>
+              {entityName}
+            </Typography>
+          </Box>
+        </MaterialBreadcrumbs>
+      )}
+      {!loading && breadcrumbNodes.length > 0 && (
         <MaterialBreadcrumbs separator="" className={classes.breadcrumbs}>
           {breadcrumbNodes.map((node, levelIndex) => {
             const kindCatalogPath = buildKindCatalogPath(levelIndex);

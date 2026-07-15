@@ -1,12 +1,6 @@
 import { type ReactNode } from 'react';
-import {
-  Box,
-  Chip,
-  CircularProgress,
-  IconButton,
-  Tooltip,
-  Typography,
-} from '@material-ui/core';
+import { Box, Chip, IconButton, Tooltip, Typography } from '@material-ui/core';
+import { PageLoader } from '@openchoreo/backstage-design-system';
 import { TablePagination } from '@material-ui/core';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { useApp, useRouteRef } from '@backstage/core-plugin-api';
@@ -192,11 +186,7 @@ export const CatalogCardList = ({ actionButton }: CatalogCardListProps) => {
         </Box>
       </Box>
 
-      {loading && (
-        <Box className={classes.loadingContainer}>
-          <CircularProgress />
-        </Box>
-      )}
+      {loading && <PageLoader minHeight={240} />}
       {!loading && entities.length === 0 && (
         <Box className={classes.emptyState}>No entities found</Box>
       )}
@@ -384,6 +374,7 @@ export const CatalogCardList = ({ actionButton }: CatalogCardListProps) => {
                     {componentType ? (
                       <Chip
                         label={componentType}
+                        title={componentType}
                         size="small"
                         variant="outlined"
                         color={
